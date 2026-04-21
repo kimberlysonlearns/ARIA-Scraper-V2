@@ -2,208 +2,290 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
-
   const base = url.replace(/\/$/, '').split('/').slice(0, 3).join('/');
-  const results = [];
-  let methodUsed = '';
 
-  // ── PATH A: WooCommerce REST API ─────────────────────────────────
-  // Every WooCommerce store exposes this endpoint publicly
-  // Returns clean JSON with name + price directly
-  const apiData = await tryWooAPI(base);
-  if (apiData.length > 0) {
-    methodUsed = 'WooCommerce REST API';
-    apiData.forEach(p => results.push(p));
-  }
+  try {
+    // ── PATH A: WooCommerce Store API (best for dynamic sites) ──────
+    // Public endpoint, no auth needed, returns name + price in cents
+    const storeApi = await tryStoreAPI(base);
+    if (storeApi.length > 0) {
+      return res.status(200).json({
+        success: true, url,
+        title: 'WooCommerce Store API',
+        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: storeApi }],
+        scrapedAt: new Date().toISOString(),
+      });
+    }
 
-  // ── PATH B: Embedded JSON in script tags ─────────────────────────
-  // WooCommerce bakes product data into <script> tags in the HTML
-  // This is always present even before JavaScript runs
-  if (results.length === 0) {
+    // ── PATH B: WooCommerce REST API ────────────────────────────────
+    const restApi = await tryRestAPI(base);
+    if (restApi.length > 0) {
+      return res.status(200).json({
+        success: true, url,
+        title: 'WooCommerce REST API',
+        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: restApi }],
+        scrapedAt: new Date().toISOString(),
+      });
+    }
+
+    // ── PATH C: Sitemap → scrape each product page ──────────────────
+    // Gets ALL products, scrapes each individual page for name + price
+    const sitemapProducts = await tryFromSitemap(base);
+    if (sitemapProducts.length > 0) {
+      return res.status(200).json({
+        success: true, url,
+        title: 'Sitemap + Product Pages',
+        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: sitemapProducts }],
+        scrapedAt: new Date().toISOString(),
+      });
+    }
+
+    // ── PATH D: Product Feed XML ────────────────────────────────────
+    const feed = await tryFeed(base);
+    if (feed.length > 0) {
+      return res.status(200).json({
+        success: true, url,
+        title: 'WooCommerce Product Feed',
+        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: feed }],
+        scrapedAt: new Date().toISOString(),
+      });
+    }
+
+    // ── PATH E: Plain text from homepage (static sites) ─────────────
     const html = await fetchHTML(url);
     if (html) {
-      const embedded = extractEmbeddedJSON(html);
-      if (embedded.length > 0) {
-        methodUsed = 'Embedded Script JSON';
-        embedded.forEach(p => results.push(p));
-      }
-
-      // ── PATH C: WooCommerce product feed (XML) ─────────────────
-      // WooCommerce generates a product feed at /feed/?post_type=product
-      // Pure XML with every product name and price
-      if (results.length === 0) {
-        const feed = await tryProductFeed(base);
-        if (feed.length > 0) {
-          methodUsed = 'WooCommerce Product Feed';
-          feed.forEach(p => results.push(p));
-        }
-      }
-
-      // ── PATH D: WooCommerce store API fragments ─────────────────
-      // WooCommerce exposes product data at /wp-json/wc/store/v1/products
-      // This is a public endpoint that doesn't require authentication
-      if (results.length === 0) {
-        const storeApi = await tryStoreAPI(base);
-        if (storeApi.length > 0) {
-          methodUsed = 'WooCommerce Store API';
-          storeApi.forEach(p => results.push(p));
-        }
-      }
-
-      // ── PATH E: Plain text line-by-line ─────────────────────────
-      // Last resort — convert page to plain text and find name+price pairs
-      // Works on simple static sites like NCRP Canada
-      if (results.length === 0) {
-        const plain = extractFromPlainText(html);
-        if (plain.length > 0) {
-          methodUsed = 'Plain Text';
-          plain.forEach(p => results.push(p));
-        }
+      const plain = extractPlainText(html);
+      if (plain.length > 0) {
+        return res.status(200).json({
+          success: true, url,
+          title: 'Plain Text',
+          insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: plain }],
+          scrapedAt: new Date().toISOString(),
+        });
       }
     }
-  }
 
-  if (results.length === 0) {
     return res.status(200).json({
       success: false,
-      error: 'Could not extract products. This site likely loads prices via JavaScript after page render. Try scanning a specific product page URL instead of the homepage.',
+      error: 'Could not extract product data. This site loads prices via JavaScript after page render.',
       url,
       scrapedAt: new Date().toISOString(),
     });
-  }
 
-  return res.status(200).json({
-    success: true,
-    url,
-    title: methodUsed,
-    insights: [{
-      type: `PRODUCTS & PRICING (via ${methodUsed})`,
-      tag: 'PRODUCTS',
-      items: results,
-    }],
-    scrapedAt: new Date().toISOString(),
-  });
+  } catch (e) {
+    return res.status(200).json({ success: false, error: e.message || 'Failed', url });
+  }
 }
 
-// ── Fetch HTML ──────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────
 async function fetchHTML(url) {
   try {
     const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/json,*/*' },
-      signal: AbortSignal.timeout(12000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/json,*/*',
+      },
+      signal: AbortSignal.timeout(10000),
     });
     return r.ok ? await r.text() : null;
   } catch { return null; }
 }
 
-// ── Decode HTML entities ────────────────────────────────────────────
 function decode(str) {
   if (!str) return '';
   return String(str)
     .replace(/&#36;/g, '$').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
-    .replace(/&#8211;/g, '-').replace(/&#39;/g, "'")
+    .replace(/&#8211;/g, '-').replace(/&#8212;/g, '-').replace(/&#39;/g, "'")
     .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
     .replace(/&\w+;/g, '').replace(/\s+/g, ' ').trim();
 }
 
-// ── PATH A: WooCommerce REST API ────────────────────────────────────
-async function tryWooAPI(base) {
+// ── PATH A: WooCommerce Store API ───────────────────────────────────
+async function tryStoreAPI(base) {
   try {
-    const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&status=publish`, {
-      headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000),
-    });
-    if (!r.ok) return [];
-    const data = await r.json();
-    if (!Array.isArray(data) || !data.length) return [];
-    return data
-      .filter(p => p.name && (p.price || p.regular_price))
-      .map(p => `${decode(p.name)} — $${p.sale_price || p.price || p.regular_price}`);
+    // Try paginated to get ALL products
+    const results = [];
+    let page = 1;
+    while (page <= 5) { // max 5 pages = 500 products
+      const r = await fetch(`${base}/wp-json/wc/store/v1/products?per_page=100&page=${page}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) break;
+      const data = await r.json();
+      if (!Array.isArray(data) || data.length === 0) break;
+      data.forEach(p => {
+        if (!p.name) return;
+        const name = decode(p.name);
+        // Price comes in cents as string e.g. "4800" = $48.00
+        const rawPrice = p.prices?.sale_price || p.prices?.price || p.prices?.regular_price || '';
+        const price = rawPrice ? `$${(parseInt(rawPrice) / 100).toFixed(2)}` : '';
+        results.push(price ? `${name} — ${price}` : name);
+      });
+      if (data.length < 100) break; // last page
+      page++;
+    }
+    return results;
   } catch { return []; }
 }
 
-// ── PATH B: Embedded JSON in script tags ────────────────────────────
-function extractEmbeddedJSON(html) {
-  const results = [];
+// ── PATH B: WooCommerce REST API ────────────────────────────────────
+async function tryRestAPI(base) {
+  try {
+    const results = [];
+    let page = 1;
+    while (page <= 5) {
+      const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&status=publish&page=${page}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) break;
+      const data = await r.json();
+      if (!Array.isArray(data) || data.length === 0) break;
+      data.forEach(p => {
+        if (!p.name) return;
+        const price = p.sale_price || p.price || p.regular_price || '';
+        results.push(price ? `${decode(p.name)} — $${price}` : decode(p.name));
+      });
+      if (data.length < 100) break;
+      page++;
+    }
+    return results;
+  } catch { return []; }
+}
 
-  // WooCommerce embeds product data in various script tag formats
-  // Pattern 1: window.__wcSharedData or similar global objects
-  const scriptBlocks = html.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
+// ── PATH C: Sitemap → individual product pages ──────────────────────
+async function tryFromSitemap(base) {
+  try {
+    // Step 1: Find all product URLs from sitemap
+    const productUrls = await getProductUrlsFromSitemap(base);
+    if (productUrls.length === 0) return [];
 
-  for (const block of scriptBlocks) {
-    const content = block.replace(/<\/?script[^>]*>/gi, '');
+    // Step 2: Scrape each product page for name + price
+    // Limit to 30 to avoid timeout
+    const results = [];
+    const urlsToScrape = productUrls.slice(0, 30);
 
-    // Look for JSON objects containing "name" and "price" keys
-    const jsonMatches = content.match(/\{[^{}]*"(?:name|title)"[^{}]*"(?:price|regular_price|sale_price)"[^{}]*\}/g) || [];
+    for (const productUrl of urlsToScrape) {
+      const product = await scrapeProductPage(productUrl);
+      if (product) results.push(product);
+    }
 
-    for (const jsonStr of jsonMatches) {
+    return results;
+  } catch { return []; }
+}
+
+async function getProductUrlsFromSitemap(base) {
+  const sitemapUrls = [
+    `${base}/product-sitemap.xml`,
+    `${base}/sitemap.xml`,
+    `${base}/sitemap_index.xml`,
+    `${base}/wp-sitemap.xml`,
+  ];
+
+  for (const sitemapUrl of sitemapUrls) {
+    try {
+      const r = await fetch(sitemapUrl, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) continue;
+      const xml = await r.text();
+
+      // If this is a sitemap index, find the product sitemap
+      if (xml.includes('<sitemapindex')) {
+        const subSitemaps = xml.match(/<loc>([^<]*product[^<]*)<\/loc>/gi) || [];
+        for (const sub of subSitemaps) {
+          const subUrl = sub.replace(/<\/?loc>/g, '').trim();
+          const subR = await fetch(subUrl, { signal: AbortSignal.timeout(8000) });
+          if (!subR.ok) continue;
+          const subXml = await subR.text();
+          const urls = extractUrlsFromSitemap(subXml, base);
+          if (urls.length > 0) return urls;
+        }
+      }
+
+      const urls = extractUrlsFromSitemap(xml, base);
+      if (urls.length > 0) return urls;
+    } catch { continue; }
+  }
+  return [];
+}
+
+function extractUrlsFromSitemap(xml, base) {
+  const allUrls = xml.match(/<loc>([^<]+)<\/loc>/gi) || [];
+  return allUrls
+    .map(u => u.replace(/<\/?loc>/g, '').trim())
+    .filter(u => {
+      // Only product pages - filter out category/tag/page URLs
+      return u.includes('/shop/') &&
+        !u.includes('/categories/') &&
+        !u.includes('/tag/') &&
+        !u.includes('?') &&
+        !u.endsWith('/shop/');
+    });
+}
+
+async function scrapeProductPage(url) {
+  try {
+    const html = await fetchHTML(url);
+    if (!html) return null;
+
+    // Decode entities first
+    const decoded = decode(html);
+
+    // Extract product name from page title or h1
+    const name =
+      decoded.match(/<h1[^>]*class="[^"]*product_title[^"]*"[^>]*>([^<]+)<\/h1>/i)?.[1]?.trim() ||
+      decoded.match(/<h1[^>]*>([^<]{3,60})<\/h1>/i)?.[1]?.trim() ||
+      // Fall back to URL slug
+      url.split('/').filter(Boolean).pop()?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    if (!name || name.length < 2) return null;
+
+    // Try JSON-LD for price (most reliable on individual pages)
+    const jsonLdBlocks = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+    for (const block of jsonLdBlocks) {
       try {
-        const obj = JSON.parse(jsonStr);
-        const name = obj.name || obj.title || '';
-        const price = obj.sale_price || obj.price || obj.regular_price || '';
-        if (name && price) {
-          results.push(`${decode(name)} — $${decode(String(price))}`);
+        const json = JSON.parse(block.replace(/<\/?script[^>]*>/gi, ''));
+        const items = Array.isArray(json) ? json : [json];
+        for (const item of items) {
+          const nodes = item['@graph'] || [item];
+          for (const node of nodes) {
+            if (node['@type'] === 'Product') {
+              const price = node.offers?.price || node.offers?.lowPrice || '';
+              const currency = node.offers?.priceCurrency || 'CAD';
+              if (price) return `${decode(name)} — $${price} ${currency}`;
+            }
+          }
         }
       } catch {}
     }
 
-    // Pattern 2: WooCommerce variation data embedded as JSON
-    try {
-      const varMatch = content.match(/\"variations_data\"\s*:\s*(\{[\s\S]*?\})\s*[,}]/);
-      if (varMatch) {
-        const vars = JSON.parse(varMatch[1]);
-        Object.values(vars).forEach((v) => {
-          if (v.price_html) {
-            const price = v.price_html.replace(/<[^>]+>/g, '').replace(/[^0-9.,$]/g, '').trim();
-            if (price) results.push(`Product variant — ${price}`);
-          }
-        });
-      }
-    } catch {}
+    // Try WooCommerce price in HTML
+    const cleanHtml = decode(html);
+    const priceMatch =
+      cleanHtml.match(/class="[^"]*woocommerce-Price-amount[^"]*"[^>]*>\s*<[^>]+>\s*\$?\s*<\/[^>]+>([\d,.]+)/i) ||
+      cleanHtml.match(/\$\s*([\d,]+(?:\.\d{2})?)\s*(?:CAD|USD)?/);
 
-    // Pattern 3: nextjs/gatsby embedded page data
-    try {
-      const nextMatch = content.match(/window\.__NEXT_DATA__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/);
-      if (nextMatch) {
-        const nextData = JSON.parse(nextMatch[1]);
-        const pageProps = nextData?.props?.pageProps;
-        if (pageProps?.products) {
-          pageProps.products.forEach((p) => {
-            const name = p.name || p.title || '';
-            const price = p.price || p.regularPrice || '';
-            if (name && price) results.push(`${decode(name)} — $${decode(String(price))}`);
-          });
-        }
+    if (priceMatch) {
+      const price = priceMatch[1]?.replace(/,/g, '') || '';
+      if (price && parseFloat(price) > 0) {
+        return `${decode(name)} — $${parseFloat(price).toFixed(2)} CAD`;
       }
-    } catch {}
+    }
 
-    // Pattern 4: Shopify embedded product JSON
-    try {
-      const shopifyMatch = content.match(/var\s+meta\s*=\s*(\{[\s\S]*?\});/) ||
-                           content.match(/ShopifyAnalytics\.meta\s*=\s*(\{[\s\S]*?\});/);
-      if (shopifyMatch) {
-        const meta = JSON.parse(shopifyMatch[1]);
-        if (meta?.product) {
-          const p = meta.product;
-          const price = p.price ? `$${(p.price / 100).toFixed(2)}` : '';
-          if (p.title && price) results.push(`${decode(p.title)} — ${price}`);
-        }
-      }
-    } catch {}
-  }
-
-  return [...new Set(results)].slice(0, 30);
+    // Return just the name if no price found
+    return decode(name);
+  } catch { return null; }
 }
 
-// ── PATH C: WooCommerce Product Feed ───────────────────────────────
-async function tryProductFeed(base) {
-  try {
-    const feedUrls = [
-      `${base}/feed/?post_type=product`,
-      `${base}/?feed=products`,
-      `${base}/product-feed/`,
-    ];
-    for (const feedUrl of feedUrls) {
+// ── PATH D: Product Feed XML ─────────────────────────────────────────
+async function tryFeed(base) {
+  const feedUrls = [
+    `${base}/feed/?post_type=product`,
+    `${base}/?feed=products`,
+  ];
+  for (const feedUrl of feedUrls) {
+    try {
       const r = await fetch(feedUrl, { signal: AbortSignal.timeout(6000) });
       if (!r.ok) continue;
       const xml = await r.text();
@@ -211,69 +293,37 @@ async function tryProductFeed(base) {
       const results = [];
       items.forEach(item => {
         const title = decode(item.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || '');
-        const price = item.match(/<g:price>([\s\S]*?)<\/g:price>/i)?.[1]?.trim() ||
-                      item.match(/<price>([\s\S]*?)<\/price>/i)?.[1]?.trim() || '';
+        const price =
+          item.match(/<g:price>([\s\S]*?)<\/g:price>/i)?.[1]?.trim() ||
+          item.match(/<price>([\s\S]*?)<\/price>/i)?.[1]?.trim() || '';
         if (title && title.length > 2) {
           results.push(price ? `${title} — ${price}` : title);
         }
       });
       if (results.length > 0) return results;
-    }
-    return [];
-  } catch { return []; }
+    } catch { continue; }
+  }
+  return [];
 }
 
-// ── PATH D: WooCommerce Store API ───────────────────────────────────
-async function tryStoreAPI(base) {
-  try {
-    const endpoints = [
-      `${base}/wp-json/wc/store/v1/products?per_page=100`,
-      `${base}/wp-json/wc/store/products?per_page=100`,
-    ];
-    for (const endpoint of endpoints) {
-      const r = await fetch(endpoint, {
-        headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000),
-      });
-      if (!r.ok) continue;
-      const data = await r.json();
-      if (!Array.isArray(data) || !data.length) continue;
-      return data
-        .filter(p => p.name && p.prices?.price)
-        .map(p => {
-          const price = (parseInt(p.prices.price) / 100).toFixed(2);
-          return `${decode(p.name)} — $${price}`;
-        });
-    }
-    return [];
-  } catch { return []; }
-}
-
-// ── PATH E: Plain text line-by-line (static sites) ──────────────────
-function extractFromPlainText(html) {
-  // Decode ALL entities first — this is the key step
+// ── PATH E: Plain text (static sites like NCRP) ──────────────────────
+function extractPlainText(html) {
   let text = html
     .replace(/&#36;/g, '$').replace(/&amp;/g, '&')
     .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
     .replace(/&\w+;/g, ' ');
-
-  // Remove noise
   text = text
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
     .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
-
-  // Convert to lines
-  const lines = text
-    .replace(/<[^>]+>/g, '\n')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 1);
-
-  const noise = ['copyright', 'quantity', 'add to cart', 'out of stock', 'contact', 'faq', 'shipping', 'documentation', 'dismiss', 'subscribe', 'cart', 'order now', 'choose us', 'evolve', 'please contact', 'how ', 'are your', 'all products', 'all orders', 'all sales', 'why choose', 'see our'];
+  const lines = text.replace(/<[^>]+>/g, '\n').split('\n').map(l => l.trim()).filter(l => l.length > 1);
+  const noise = ['copyright', 'quantity', 'add to cart', 'out of stock', 'contact', 'faq',
+    'shipping', 'documentation', 'dismiss', 'subscribe', 'cart', 'order now', 'choose us',
+    'evolve', 'please contact', 'how ', 'are your', 'all products', 'all orders', 'all sales',
+    'why choose', 'see our', 'follow', 'now available'];
   const priceRx = /^\$[\d,]+(?:\.\d{2})?$/;
   const dosageRx = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:\s*(?:Vial|Aqueous Solution|Solution|Tablets?|Caps?|\/)\s*[\d\s\w/.]*)?$/i;
-
   const results = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -281,20 +331,13 @@ function extractFromPlainText(html) {
     if (!line.match(/^[A-Za-z]/)) continue;
     if (noise.some(n => line.toLowerCase().includes(n))) continue;
     if (line.includes('{') || line.includes('http')) continue;
-
-    // Look ahead up to 8 lines for a price
-    let dosage = '';
-    let price = '';
+    let dosage = '', price = '';
     for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
       const next = lines[j].trim();
       if (!dosage && dosageRx.test(next)) dosage = next;
       if (!price && priceRx.test(next)) { price = next; break; }
     }
-
-    if (price) {
-      results.push([line, dosage, price].filter(Boolean).join(' — '));
-    }
+    if (price) results.push([line, dosage, price].filter(Boolean).join(' — '));
   }
-
   return [...new Set(results)].slice(0, 25);
 }
