@@ -115,6 +115,301 @@ function detectChanges(prevResults, currentResults, competitors) {
   return changes;
 }
 
+
+function AllProductsTab({ competitors, scrapeResults, setActivePage }) {
+  const [apFilter, setApFilter] = useState('ALL');
+  const [apSort, setApSort] = useState('name');
+  const [apSearch, setApSearch] = useState('');
+
+// Build master product list from all scan results
+const masterMap = {};
+competitors.forEach(c => {
+  const result = scrapeResults[c.id];
+  if (!result?.success) return;
+  const items = result.insights?.[0]?.items || [];
+  items.forEach(item => {
+    const parts = item.split(' — ');
+    const name = parts[0]?.trim();
+    if (!name || name.length < 2) return;
+    const pricePart = parts.find(p => p.includes('$'));
+    const price = pricePart?.match(/\$[\d,.]+/)?.[0] || '';
+    const priceVal = parsePrice(price);
+    const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!masterMap[key]) {
+      masterMap[key] = {
+        name,
+        category: categorize(name),
+        sites: {},
+      };
+    }
+    if (price) masterMap[key].sites[c.name] = { price, value: priceVal };
+  });
+});
+
+const allProducts = Object.values(masterMap);
+const categories = ['ALL', ...new Set(allProducts.map(p => p.category))].sort();
+
+const filtered = allProducts
+  .filter(p => {
+    const matchCat = apFilter === 'ALL' || p.category === apFilter;
+    const matchSearch = !apSearch || p.name.toLowerCase().includes(apSearch.toLowerCase());
+    return matchCat && matchSearch;
+  })
+  .sort((a, b) => {
+    if (apSort === 'name') return a.name.localeCompare(b.name);
+    if (apSort === 'category') return a.category.localeCompare(b.category);
+    if (apSort === 'price') {
+      const aMin = Math.min(...Object.values(a.sites).map(s => s.value || 999));
+      const bMin = Math.min(...Object.values(b.sites).map(s => s.value || 999));
+      return aMin - bMin;
+    }
+    if (apSort === 'sites') return Object.keys(b.sites).length - Object.keys(a.sites).length;
+    return 0;
+  });
+
+const allSites = [...new Set(allProducts.flatMap(p => Object.keys(p.sites)))];
+
+return (
+  <div>
+    <h1 style={H1}>ALL PRODUCTS</h1>
+    <p style={SUB}>{allProducts.length} unique products detected across {competitors.filter(c => scrapeResults[c.id]?.success).length} scanned competitors</p>
+
+    {allProducts.length === 0 ? (
+      <div className="aria-card" style={CARD}>
+        <h3 style={H3}>NO PRODUCTS YET</h3>
+        <p style={P}>Scan at least one competitor to populate this list.</p>
+        <button className="aria-btn-primary" style={{ ...BTN_PRIMARY, marginTop: '12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
+      </div>
+    ) : (
+      <>
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+          {[
+            { label: 'Unique Products', value: allProducts.length },
+            { label: 'With Prices', value: allProducts.filter(p => Object.keys(p.sites).length > 0).length },
+            { label: 'Categories', value: categories.length - 1 },
+            { label: 'Sites Scanned', value: allSites.length },
+          ].map((s, i) => (
+            <div key={i} style={STAT_CARD}>
+              <div style={STAT_LABEL}>{s.label}</div>
+              <div style={{ fontSize: '28px', color: '#f5e6e0', marginTop: '6px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            type="text" placeholder="Search products..."
+            value={apSearch} onChange={e => setApSearch(e.target.value)}
+            style={{ flex: 1, minWidth: '180px', padding: '9px 14px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}
+          />
+          <select value={apSort} onChange={e => setApSort(e.target.value)}
+            style={{ padding: '9px 12px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#aaa', fontSize: '12px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>
+            <option value="name">Sort: Name A–Z</option>
+            <option value="category">Sort: Category</option>
+            <option value="price">Sort: Price (low)</option>
+            <option value="sites">Sort: Most sites</option>
+          </select>
+          <select value={apFilter} onChange={e => setApFilter(e.target.value)}
+            style={{ padding: '9px 12px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#aaa', fontSize: '12px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        {/* Product table */}
+        <div className="aria-card" style={CARD}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: `${220 + 140 + allSites.length * 130}px` }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '10px 14px', fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', textAlign: 'left', borderBottom: '1px solid #252525', background: '#1a1a1a', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif", width: '220px' }}>Product</th>
+                  <th style={{ padding: '10px 14px', fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', textAlign: 'left', borderBottom: '1px solid #252525', background: '#1a1a1a', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif", width: '140px' }}>Category</th>
+                  {allSites.map(site => (
+                    <th key={site} style={{ padding: '10px 14px', fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', textAlign: 'left', borderBottom: '1px solid #252525', background: '#1a1a1a', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif", width: '130px' }}>{site}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p, i) => {
+                  const cc = CATEGORY_COLORS[p.category] || CATEGORY_COLORS['Other'];
+                  const sitePrices = Object.values(p.sites).map(s => s.value).filter(Boolean);
+                  const minPrice = sitePrices.length ? Math.min(...sitePrices) : null;
+                  return (
+                    <tr key={i} className="aria-row" style={{ background: i % 2 === 0 ? '#161616' : '#111' }}>
+                      <td style={{ padding: '10px 14px', fontSize: '13px', color: '#eee', fontWeight: '500', borderBottom: '1px solid #1e1e1e', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>{p.name}</td>
+                      <td style={{ padding: '10px 14px', borderBottom: '1px solid #1e1e1e' }}>
+                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '99px', background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, fontWeight: '600', whiteSpace: 'nowrap', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>{p.category}</span>
+                      </td>
+                      {allSites.map(site => {
+                        const sd = p.sites[site];
+                        const isLow = sd?.value && sd.value === minPrice && sitePrices.length > 1;
+                        return (
+                          <td key={site} style={{ padding: '10px 14px', fontSize: '13px', color: isLow ? '#b0ffd8' : sd ? '#ccc' : '#2a2a2a', fontWeight: isLow ? '600' : '400', borderBottom: '1px solid #1e1e1e', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>
+                            {sd ? sd.price : '—'}
+                            {isLow && <span style={{ fontSize: '9px', marginLeft: '5px', color: '#40c080', fontWeight: '700' }}>LOW</span>}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {filtered.length === 0 && <p style={{ ...P, textAlign: 'center', padding: '24px', color: '#444' }}>No products match your filters.</p>}
+        </div>
+      </>
+    )}
+  </div>
+);
+}
+
+function PeptideGuideTab() {
+  const FF = "'Century Gothic', 'Trebuchet MS', sans-serif";
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [search, setSearch] = useState('');
+
+const PEPTIDES = [
+  // ── WEIGHT LOSS ──────────────────────────────────────────
+  { id:1, name:'Semaglutide', category:'Weight Loss', desc:'A GLP-1 receptor agonist that mimics the hormone released after eating. Signals the brain to reduce appetite and slows stomach emptying, making you feel fuller longer.', benefits:'Activates GLP-1 receptors to suppress appetite, slow gastric emptying, and improve insulin secretion — reducing caloric intake and improving glycaemic control.', simple:'It tells your brain you are full even when you have not eaten much, so you naturally eat less and lose weight.', dosage:'Start 0.25mg/week, increase to 0.5–2.4mg/week over 4–8 weeks.', notes:'Subcutaneous injection. Once weekly. Titrate slowly to reduce nausea. Cycle: ongoing with monitoring.' },
+  { id:2, name:'Tirzepatide', category:'Weight Loss', desc:'Dual GLP-1 and GIP receptor agonist — targets two metabolic pathways simultaneously. More effective than Semaglutide for fat loss in clinical trials.', benefits:'Dual agonism of GLP-1 and GIP receptors enhances insulin secretion, reduces glucagon, slows gastric emptying, and improves fat oxidation more than single-agonist therapy.', simple:'It pushes two "eat less and burn fat" buttons at the same time instead of one, so it works even better than Semaglutide.', dosage:'Start 2.5mg/week, increase by 2.5mg every 4 weeks up to 15mg/week.', notes:'Subcutaneous injection. Once weekly. Slower titration reduces GI side effects.' },
+  { id:3, name:'Retatrutide', category:'Weight Loss', desc:'Triple agonist targeting GLP-1, GIP, and glucagon receptors. The newest and most potent weight loss peptide class. Still in clinical trials but widely available.', benefits:'Triple receptor activation simultaneously reduces appetite via GLP-1/GIP, increases energy expenditure via glucagon receptor, and promotes visceral fat mobilisation.', simple:'It pushes three different fat-burning buttons at once — it is the most powerful weight loss peptide available right now.', dosage:'Start 2mg/week, increase gradually to 4–12mg/week over 3–6 months.', notes:'Subcutaneous injection. Longest titration period. Very powerful — start conservatively.' },
+  { id:4, name:'Cagrilintide', category:'Weight Loss', desc:'Amylin analogue that works via a completely different pathway from GLP-1. Often combined with Semaglutide (CagriSema) for synergistic effects.', benefits:'Mimics amylin to suppress glucagon, slow gastric emptying, and reduce food intake via central satiety pathways — complementary to GLP-1 mechanisms.', simple:'Works like a second "stop eating" signal using a totally different system in your body, making it a great partner to Semaglutide.', dosage:'0.16–2.4mg/week, titrate over 16–32 weeks.', notes:'Subcutaneous injection. Frequently combined with Semaglutide for additive fat loss.' },
+  { id:5, name:'AOD-9604', category:'Weight Loss', desc:'A modified fragment of human growth hormone (HGH) that specifically targets fat metabolism without affecting blood sugar or growth.', benefits:'Stimulates lipolysis (fat cell breakdown) and inhibits lipogenesis (new fat creation) via beta-3 adrenergic receptors, without IGF-1 stimulation or glycaemic impact.', simple:'It tells fat cells to melt away without messing with your blood sugar or making you grow taller — gentle and targeted fat loss.', dosage:'200–300mcg/day subcutaneous injection, taken fasted.', notes:'Best taken in the morning on an empty stomach. No need to cycle aggressively. Gentle and well-tolerated.' },
+
+  // ── MUSCLE GROWTH ─────────────────────────────────────────
+  { id:6, name:'MK-677 (Ibutamoren)', category:'Muscle Growth', desc:'A growth hormone secretagogue — stimulates the pituitary gland to release more natural GH and IGF-1. Oral tablet, not an injection.', benefits:'Mimics ghrelin to stimulate GH secretion from the pituitary, increasing downstream IGF-1 — promoting muscle protein synthesis, lipolysis, and anabolic recovery.', simple:'It tricks your body into making more of its own growth hormone, which helps build muscle, burn fat, and sleep deeper — all in a pill.', dosage:'10–25mg/day orally. Start at 10mg to assess hunger and water retention tolerance.', notes:'Oral. Can be taken daily. Causes significant hunger increase. Best taken before bed. Long-term cycles of 3–6 months are common.' },
+  { id:7, name:'CJC-1295', category:'Muscle Growth', desc:'A GHRH (Growth Hormone Releasing Hormone) analogue that stimulates the pituitary to release GH pulses. Usually combined with Ipamorelin for synergistic effect.', benefits:'Binds GHRH receptors on the pituitary to amplify and extend GH pulse frequency and amplitude, raising IGF-1 levels for sustained anabolic and lipolytic effects.', simple:'It nudges your brain to send more "grow and repair" signals to your body, helping build muscle and burn fat over time.', dosage:'300mcg 2–3x/week (with DAC) or 100mcg 2–3x/day (without DAC).', notes:'Subcutaneous injection. Almost always stacked with Ipamorelin. DAC version is longer-acting and requires less frequent dosing.' },
+  { id:8, name:'Ipamorelin', category:'Muscle Growth', desc:'A selective GHRP (Growth Hormone Releasing Peptide) that stimulates GH release with minimal side effects compared to older GHRPs. Considered the cleanest GH secretagogue.', benefits:'Selectively activates ghrelin receptors to produce clean GH pulses without elevating cortisol, prolactin, or ACTH — the safest GHRP available.', simple:'It sends a clean "release growth hormone now" message to your body without any of the unwanted side effects of older versions.', dosage:'200–300mcg 2–3x/day subcutaneous injection.', notes:'Best taken fasted or before bed. Almost always combined with CJC-1295. 3-month cycles with 1 month off.' },
+  { id:9, name:'Tesamorelin', category:'Muscle Growth', desc:'A GHRH analogue FDA-approved for visceral fat reduction in HIV patients. Strong GH-stimulating effects with excellent safety profile.', benefits:'Stimulates endogenous GH secretion via GHRH receptors, significantly reducing visceral adipose tissue and improving lean body mass — FDA-approved with published clinical data.', simple:'An FDA-approved peptide that melts belly fat and helps build lean muscle — it is one of the most trusted and well-studied options available.', dosage:'1–2mg/day subcutaneous injection.', notes:'One of the most clinically validated peptides. Excellent for body recomposition. Standard cycle 3–6 months.' },
+  { id:10, name:'IGF-1 LR3', category:'Muscle Growth', desc:'Insulin-like Growth Factor 1 — a downstream product of GH. Directly stimulates muscle cell growth and repair. More potent and targeted than GH.', benefits:'Binds IGF-1 receptors to directly stimulate myoblast proliferation, protein synthesis, and satellite cell activation — promoting both hypertrophy and hyperplasia.', simple:'It goes straight to your muscle cells and tells them to grow and multiply — faster and more directly than growth hormone itself.', dosage:'20–50mcg/day subcutaneous or intramuscular injection.', notes:'Short cycles of 4–6 weeks due to receptor desensitisation. Very powerful — start at lowest dose. Post-injection hyperglycemia possible.' },
+  { id:11, name:'HGH (Human Growth Hormone)', category:'Muscle Growth', desc:'The actual growth hormone molecule. Stimulates IGF-1 production in the liver, drives muscle growth, fat breakdown, and cellular repair throughout the body.', benefits:'Stimulates hepatic IGF-1 synthesis, promotes lipolysis, enhances nitrogen retention, increases lean muscle mass, improves bone density and connective tissue repair.', simple:'This is the real growth hormone — it tells your liver to make the building blocks that grow muscle, burn fat, and repair everything in your body.', dosage:'1–4 IU/day subcutaneous injection. Split into 2 doses for best results.', notes:'Most effective taken fasted in AM or before bed. Long cycles of 3–6 months minimum to see full effects. Expensive — verify purity via lab results.' },
+
+  // ── RECOVERY / HEALING ────────────────────────────────────
+  { id:12, name:'BPC-157', category:'Recovery / Healing', desc:'Body Protection Compound — a synthetic peptide derived from a protein in gastric juice. One of the most researched healing peptides. Works by upregulating growth factor receptors and promoting angiogenesis.', benefits:'Upregulates VEGF and other growth factor receptors, promotes angiogenesis, modulates nitric oxide signalling, and accelerates tendon, ligament, muscle, and gut tissue repair.', simple:'Think of it as a repair crew that shows up at injuries and speeds up healing everywhere in your body — muscles, tendons, gut, and more.', dosage:'200–400mcg/day subcutaneous or oral. Systemic: injection near injury site. Gut: oral capsule.', notes:'Can be taken orally for gut issues or injected for systemic/musculoskeletal injuries. No known toxicity. Safe for extended use.' },
+  { id:13, name:'TB-500 (Thymosin Beta-4)', category:'Recovery / Healing', desc:'A synthetic version of a protein found in high concentrations at injury sites. Promotes cell migration, blood vessel formation, and tissue regeneration throughout the body.', benefits:'Regulates actin polymerisation to promote cell migration and proliferation, stimulates angiogenesis, reduces pro-inflammatory cytokines, and accelerates systemic tissue regeneration.', simple:'It tells your body to send repair cells to everywhere that is damaged and helps grow new blood vessels to feed healing tissue — full-body recovery.', dosage:'2–2.5mg 2x/week during injury phase, then 2mg/week for maintenance.', notes:"Works systemically — doesn't need to be injected near injury site. Pairs extremely well with BPC-157. 4–6 week cycles." },
+  { id:14, name:'BPC-157 + TB-500 Blend', category:'Recovery / Healing', desc:'The most popular healing stack. BPC-157 targets local tissue repair while TB-500 provides systemic healing — together they cover both mechanisms for faster recovery.', benefits:'Combined local tissue repair (BPC-157 via growth factor upregulation) and systemic cellular migration/angiogenesis (TB-500 via actin regulation) — dual-mechanism comprehensive recovery.', simple:'BPC-157 fixes the specific injury site while TB-500 heals your whole body at the same time — together they are the fastest recovery stack available.', dosage:'BPC-157 250mcg + TB-500 1.25mg per injection, 2x/week.', notes:'The gold standard recovery protocol. Widely used by athletes. 4–6 week cycles. Injectable or BPC-157 oral + TB-500 injectable.' },
+  { id:15, name:'GHK-Cu (Copper Peptide)', category:'Recovery / Healing', desc:'A naturally occurring copper peptide found in human plasma, urine, and saliva. Powerful regenerative and anti-aging effects on skin and tissue.', benefits:'Activates TGF-beta and collagen gene expression, modulates MMP activity for tissue remodelling, promotes wound healing, stimulates hair follicle cycling, and reduces oxidative damage.', simple:'A copper-powered peptide that tells your skin and tissues to rebuild collagen, heal wounds faster, and even help hair grow — used in both injections and skin creams.', dosage:'1–2mg/day subcutaneous injection or topical application.', notes:'Available as injectable and topical cream. Dual use: systemic healing + cosmetic. Very well tolerated.' },
+  { id:16, name:'LL-37', category:'Recovery / Healing', desc:'A human antimicrobial peptide (cathelicidin) with immune-modulating properties. Naturally produced by the immune system in response to infection.', benefits:'Disrupts bacterial membrane integrity, modulates TLR signalling to regulate inflammatory response, promotes keratinocyte migration for wound closure, and stimulates angiogenesis.', simple:'Your own immune system makes this to fight infections and heal wounds — this is just a concentrated version that gives those healing powers a boost.', dosage:'100–200mcg/day subcutaneous injection.', notes:'Particularly useful for chronic infections, wound healing, and immune support. Modulates rather than over-stimulates immune response.' },
+
+  // ── ANTI-AGING ────────────────────────────────────────────
+  { id:17, name:'Epitalon', category:'Anti-Aging', desc:'A tetrapeptide (4 amino acids) that stimulates the pineal gland to produce melatonin and regulate telomere length. Often called the "fountain of youth" peptide.', benefits:'Stimulates pineal melatonin synthesis, activates telomerase to elongate telomeres, regulates circadian rhythm, and reduces oxidative stress markers associated with cellular aging.', simple:'It lengthens the protective caps on your DNA (like the plastic tips on shoelaces) so your cells age more slowly — and helps you sleep better too.', dosage:'5–10mg/day for 10–20 days, 2–3 cycles/year.', notes:'Short intensive cycles rather than daily use. Injectable or nasal spray. Most studied anti-aging peptide.' },
+  { id:18, name:'NAD+ (Nicotinamide Adenine Dinucleotide)', category:'Anti-Aging', desc:'A coenzyme found in every cell that declines with age. Critical for energy production, DNA repair, and cell signalling. One of the most researched longevity molecules.', benefits:'Essential cofactor for sirtuins and PARP enzymes involved in DNA repair, activates mitochondrial biogenesis, supports cellular redox reactions, and declines ~50% by age 60.', simple:'Every cell in your body uses this like a battery — when it runs low with age, everything slows down. Refilling it gives your cells energy to repair and run properly again.', dosage:'250–500mg/day oral or 500mg–1g IV infusion.', notes:'Oral has lower bioavailability than IV. NAD+ precursors (NMN, NR) are oral alternatives. Flush sensation common with rapid IV dosing.' },
+  { id:19, name:'MOTS-c', category:'Anti-Aging', desc:'A mitochondria-derived peptide that acts as a metabolic regulator. Naturally produced in the body but declines with age. Activates AMPK pathway.', benefits:'Activates AMPK to regulate glucose and lipid metabolism, improves insulin sensitivity, enhances mitochondrial function, and mimics the metabolic benefits of exercise at a cellular level.', simple:'It is like telling your cells to act like they just exercised — better energy, better fat burning, better metabolism — even when you are resting.', dosage:'5–10mg 2–3x/week subcutaneous injection.', notes:'Exercise mimetic — enhances benefits of physical activity. Stack with other anti-aging peptides. Short cycles of 4–8 weeks.' },
+  { id:20, name:'SS-31 (Elamipretide)', category:'Anti-Aging', desc:'A mitochondria-targeting tetrapeptide that binds to cardiolipin in the inner mitochondrial membrane. Protects and restores mitochondrial function.', benefits:'Binds cardiolipin to stabilise the inner mitochondrial membrane, preserves electron transport chain efficiency, reduces mitochondrial ROS production, and restores ATP synthesis in aged cells.', simple:'Mitochondria are the power plants of your cells — this peptide fixes the power plants so they stop leaking toxic waste and start making energy properly again.', dosage:'0.5–2mg/day subcutaneous injection.', notes:'One of the most exciting longevity peptides. Targets the root cause of cellular aging. Research ongoing. Very well tolerated.' },
+  { id:21, name:'N-Acetyl Epitalon Amidate', category:'Anti-Aging', desc:'An enhanced, more stable form of Epitalon. The acetylation and amidation increase bioavailability and half-life, making it more effective at lower doses.', benefits:'Same telomerase activation and melatonin regulation as Epitalon but with superior receptor binding affinity, enhanced metabolic stability, and extended half-life due to N-acetylation and C-terminal amidation.', simple:'The upgraded version of Epitalon — same DNA-protecting benefits but your body absorbs it better and it stays active longer, so you need less of it.', dosage:'2–5mg/day for 10–20 days, 2–3 cycles/year.', notes:'More potent than standard Epitalon. Preferred by many practitioners for improved stability.' },
+
+  // ── COGNITIVE / FOCUS ─────────────────────────────────────
+  { id:22, name:'Semax', category:'Cognitive / Focus', desc:'A synthetic analogue of ACTH (adrenocorticotropic hormone) developed in Russia. Enhances BDNF (brain-derived neurotrophic factor) production and dopamine/serotonin activity.', benefits:'Increases BDNF expression to support neuronal survival and synaptic plasticity, upregulates dopaminergic and serotonergic neurotransmission, and exerts neuroprotective effects via reduced neuroinflammation.', simple:'It gives your brain a fertiliser boost — helping brain cells grow, communicate faster, and making you feel more focused and in a better mood.', dosage:'200–600mcg/day as nasal spray or subcutaneous injection.', notes:'Nasal spray is most common. Fast-acting. Russian research drug with decades of clinical use. Cycle 2–4 weeks on, 2 weeks off.' },
+  { id:23, name:'N-Acetyl Semax Amidate', category:'Cognitive / Focus', desc:'Enhanced version of Semax with acetylation and amidation for increased stability and potency. More bioavailable and longer-lasting than standard Semax.', benefits:'All Semax mechanisms with enhanced CNS penetration, greater receptor binding affinity, and prolonged half-life — achieving equivalent effects at significantly lower doses.', simple:'The stronger version of Semax — crosses into the brain more easily and lasts longer, so a smaller amount gives you more focus and mental clarity.', dosage:'100–300mcg/day nasal spray.', notes:'More potent — start at lower doses. Preferred over standard Semax by many users.' },
+  { id:24, name:'Selank', category:'Cognitive / Focus', desc:'A synthetic analogue of tuftsin — an immunomodulatory peptide. Anxiolytic (anti-anxiety) effects without sedation. Developed in Russia as an anti-anxiety agent.', benefits:'Modulates GABAergic and serotonergic systems to reduce anxiety, enhances BDNF expression, stabilises enkephalin metabolism to improve mood, and exerts anxiolysis without benzodiazepine-like sedation or dependency.', simple:'It calms anxiety and sharpens focus at the same time — like turning down the noise in your head without making you sleepy or addicted.', dosage:'250–300mcg/day nasal spray, 2–3x/day.', notes:'Excellent for stress and anxiety without benzodiazepine downsides. Stack with Semax for cognitive + anxiety relief. Gentle and well-tolerated.' },
+  { id:25, name:'N-Acetyl Selank Amidate', category:'Cognitive / Focus', desc:'Enhanced form of Selank with superior stability and bioavailability. The amidated form has greater receptor affinity.', benefits:'All Selank mechanisms with improved enzymatic resistance, enhanced blood-brain barrier penetration, and greater GABAergic/serotonergic receptor binding affinity.', simple:'The upgraded Selank — gets into the brain more effectively and stays active longer, giving you calmer, clearer thinking with less product needed.', dosage:'100–200mcg/day nasal spray.', notes:'More potent than standard Selank — dose accordingly. Preferred form for consistent results.' },
+  { id:26, name:'5-Amino-1MQ', category:'Cognitive / Focus', desc:'A small molecule NNMT inhibitor that affects nicotinamide metabolism and NAD+ levels. Emerging metabolic and cognitive enhancer.', benefits:'Inhibits NNMT enzyme to redirect nicotinamide into NAD+ synthesis, activating SIRT1 and improving mitochondrial efficiency — with emerging data on adipocyte reduction and potential cognitive benefits.', simple:'It blocks a "waste enzyme" in your body so more fuel gets converted into energy instead of thrown away — better metabolism and sharper thinking as a result.', dosage:'50–100mg orally or 10mg reconstituted vial.', notes:'Research compound. Effects on metabolism well studied. Take with food. Cycle 4–8 weeks.' },
+
+  // ── HORMONAL / METABOLIC ─────────────────────────────────
+  { id:27, name:'Melanotan-2', category:'Hormonal / Metabolic', desc:'A synthetic analogue of alpha-MSH (melanocyte-stimulating hormone). Stimulates melanin production and has aphrodisiac properties.', benefits:'Activates MC1R receptors to stimulate melanogenesis (melanin production), MC3R/MC4R to suppress appetite and increase lipolysis, and MC4R centrally for aphrodisiac effects.', simple:'It activates your skin tanning system without needing the sun, and also works on the brain to reduce hunger and increase libido.', dosage:'0.25–0.5mg subcutaneous injection, starting dose 0.1mg.', notes:'Start very low — nausea and facial flushing common at first. Tanning effect requires some UV exposure. Loading phase then maintenance.' },
+  { id:28, name:'PT-141 (Bremelanotide)', category:'Hormonal / Metabolic', desc:'A melanocortin receptor agonist acting on the CNS to enhance sexual arousal — distinct from PDE5 inhibitors (Viagra). Works on brain pathways not blood flow.', benefits:'Activates hypothalamic MC4R receptors to increase dopaminergic activity in arousal pathways — addresses sexual dysfunction at the neurological level rather than via vasodilation.', simple:'Unlike Viagra which works on blood flow, this one works directly on the brain to turn on the desire and arousal centres — it works for both men and women.', dosage:'0.5–2mg subcutaneous injection or nasal spray, 1–2 hours before activity.', notes:'FDA-approved as Vyleesi for female sexual dysfunction. Brain-based not blood flow. Avoid if cardiovascular concerns.' },
+  { id:29, name:'Thymosin Alpha-1', category:'Hormonal / Metabolic', desc:'A thymic peptide that modulates the immune system. Naturally produced in the thymus gland and declines with age. FDA-approved in some countries.', benefits:'Upregulates T-cell maturation and dendritic cell function, enhances NK cell cytotoxicity, modulates Th1/Th2 balance, and increases IL-2 and IFN-gamma production for antiviral and antitumour immunity.', simple:'It trains and strengthens your immune army — helping your body fight viruses, infections, and even support cancer treatment more effectively.', dosage:'1.6mg 2x/week subcutaneous injection.', notes:'Used clinically in hepatitis B/C and cancer treatment. 4–6 week cycles. Well-studied immune modulator with excellent safety profile.' },
+  { id:30, name:'hCG (Human Chorionic Gonadotropin)', category:'Hormonal / Metabolic', desc:'A hormone that mimics LH (luteinising hormone) — stimulates the testes to produce testosterone. Used in TRT protocols to maintain testicular function.', benefits:'Mimics LH to stimulate Leydig cell testosterone synthesis and maintain intratesticular testosterone levels, preventing testicular atrophy and preserving spermatogenesis during exogenous androgen use.', simple:'Tells your testicles to keep working and making testosterone even when you are on TRT — prevents them from shrinking and keeps fertility options open.', dosage:'250–500 IU 2–3x/week subcutaneous injection.', notes:'Critical for men on TRT who want to preserve fertility. Requires prescription in most jurisdictions.' },
+  { id:31, name:'Enclomiphene', category:'Hormonal / Metabolic', desc:'A selective estrogen receptor modulator (SERM) that increases LH and FSH, stimulating natural testosterone production. Oral tablet.', benefits:'Blocks oestrogen receptors at the hypothalamus to increase GnRH pulsatility, elevating LH and FSH to stimulate endogenous testosterone production without suppressing the HPG axis.', simple:'It tricks your brain into thinking your testosterone is low, so it sends more signals to naturally make more — without shutting down your own system like TRT can.', dosage:'12.5–25mg/day orally.', notes:'Oral. Preferred over Clomiphene as it lacks the estrogenic isomer. Used for hypogonadism and post-cycle therapy.' },
+  { id:32, name:'KPV', category:'Hormonal / Metabolic', desc:'A tripeptide (Lys-Pro-Val) fragment of alpha-MSH with potent anti-inflammatory properties. Particularly effective for gut inflammation.', benefits:'Inhibits NF-kB pathway and pro-inflammatory cytokine production (IL-1β, TNF-α, IL-6), crosses the gut epithelial barrier intact, and reduces intestinal permeability in inflammatory bowel conditions.', simple:"A tiny 3-piece peptide that turns down the inflammation alarm in your gut — great for people with IBS, Crohn's, or any gut issues.", dosage:'300–500mcg/day oral or subcutaneous injection.', notes:"Oral works well for gut issues. Injectable for systemic effects. Very well tolerated. Can be used long-term." },
+  { id:33, name:'VIP (Vasoactive Intestinal Peptide)', category:'Hormonal / Metabolic', desc:'A neuropeptide found throughout the nervous system and gut. Regulates immune function, inflammation, and smooth muscle. Promising for CIRS and mold illness.', benefits:'Activates VPAC receptors to suppress pro-inflammatory cytokines, relax smooth muscle, regulate TH17/Treg balance, and restore neuroendocrine signalling disrupted by biotoxin illness.', simple:'A neuropeptide that calms inflammation throughout the nervous system and gut — particularly important for people dealing with mold illness or CIRS.', dosage:'50mcg 2x/day nasal spray.', notes:'Primarily used via nasal spray. Important in CIRS protocols. Requires diagnosis-appropriate use.' },
+  { id:34, name:'Pinealon', category:'Hormonal / Metabolic', desc:'A tripeptide (Glu-Asp-Arg) that targets brain cell activity, particularly pineal gland function. Russian-developed neuroprotective peptide.', benefits:'Penetrates the blood-brain barrier to modulate gene expression in neurons, reduces oxidative stress in brain tissue, supports pineal melatonin regulation, and demonstrates neuroprotective effects in aging models.', simple:'A peptide that crosses into the brain to protect brain cells from aging damage and help regulate your sleep hormone — used in intensive short cycles.', dosage:'10mg/day for 10 days, 2–4 cycles/year.', notes:'Short intensive cycles. Nasal spray or injection. Stack with Epitalon for comprehensive anti-aging protocol.' },
+];
+
+const categories = ['all', 'Weight Loss', 'Muscle Growth', 'Recovery / Healing', 'Anti-Aging', 'Cognitive / Focus', 'Hormonal / Metabolic'];
+
+const filtered = PEPTIDES.filter(p => {
+  const matchCat = activeCategory === 'all' || p.category === activeCategory;
+  const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.benefits.toLowerCase().includes(search.toLowerCase());
+  return matchCat && matchSearch;
+});
+
+const CC = CATEGORY_COLORS;
+const catColor = (cat) => CC[cat] || CC['Other'];
+
+return (
+  <div>
+    <h1 style={H1}>PEPTIDE GUIDE</h1>
+    <p style={SUB}>Reference library — {PEPTIDES.length} peptides across {categories.length - 1} categories</p>
+
+    {/* Search + filter */}
+    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <input
+        type="text" placeholder="Search peptides or benefits..."
+        value={search} onChange={e => setSearch(e.target.value)}
+        style={{ flex: 1, minWidth: '200px', padding: '10px 14px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: FF }}
+      />
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        {categories.map(cat => {
+          const cc = cat === 'all' ? { bg:'#181818', border:'#555', text:'#aaa' } : catColor(cat);
+          const isActive = activeCategory === cat;
+          return (
+            <button key={cat} onClick={() => setActiveCategory(cat)}
+              style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '99px', border: `1px solid ${isActive ? cc.border : '#333'}`, background: isActive ? cc.bg : 'transparent', color: isActive ? cc.text : '#666', cursor: 'pointer', fontFamily: FF, transition: 'all 0.15s', fontWeight: isActive ? '600' : '400' }}>
+              {cat === 'all' ? `All (${PEPTIDES.length})` : cat}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Peptide cards */}
+    <div style={{ display: 'grid', gap: '10px' }}>
+      {filtered.map(p => {
+        const cc = catColor(p.category);
+        return (
+          <div key={p.id} style={{ background: '#181818', border: '1px solid #252525', borderRadius: '8px', padding: '18px 20px', transition: 'border-color 0.15s' }}
+            className="aria-card">
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#f5e6e0', margin: 0, fontFamily: FF }}>{p.name}</h3>
+              <span style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '99px', background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, fontWeight: '600', fontFamily: FF, whiteSpace: 'nowrap' }}>{p.category}</span>
+            </div>
+
+            {/* 4 columns of info */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '5px', fontFamily: FF }}>What it is</div>
+                <p style={{ fontSize: '12px', color: '#bbb', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.desc}</p>
+              </div>
+              <div>
+                <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '8px', fontFamily: FF }}>Primary benefits</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '9px', color: cc.text, fontWeight: '600', letterSpacing: '0.5px', marginBottom: '3px', fontFamily: FF, opacity: 0.8 }}>MEDICAL</div>
+                    <p style={{ fontSize: '12px', color: '#bbb', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.benefits}</p>
+                  </div>
+                  {p.simple && (
+                    <div style={{ borderTop: '1px solid #222', paddingTop: '8px' }}>
+                      <div style={{ fontSize: '9px', color: cc.text, fontWeight: '600', letterSpacing: '0.5px', marginBottom: '3px', fontFamily: FF, opacity: 0.8 }}>SIMPLE</div>
+                      <p style={{ fontSize: '12px', color: '#ddd', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.simple}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '5px', fontFamily: FF }}>Recommended dosage</div>
+                <p style={{ fontSize: '12px', color: cc.text, margin: 0, lineHeight: '1.6', fontFamily: FF, fontWeight: '500' }}>{p.dosage}</p>
+              </div>
+              <div>
+                <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '5px', fontFamily: FF }}>Key notes</div>
+                <p style={{ fontSize: '12px', color: '#bbb', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.notes}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {filtered.length === 0 && (
+        <div style={{ ...CARD, textAlign: 'center', padding: '40px' }}>
+          <p style={{ ...P, color: '#555' }}>No peptides found for "{search}"</p>
+        </div>
+      )}
+    </div>
+  </div>
+);
+}
 export default function Home() {
   const [activePage, setActivePage] = useState('dashboard');
   const [competitors, setCompetitors] = useState([]);
@@ -975,301 +1270,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
         )}
 
         {/* ── ALL PRODUCTS ───────────────────────────────────────── */}
-        {activePage === 'allproducts' && (() => {
-          const [apFilter, setApFilter] = useState('ALL');
-          const [apSort, setApSort] = useState('name');
-          const [apSearch, setApSearch] = useState('');
-
-          // Build master product list from all scan results
-          const masterMap = {};
-          competitors.forEach(c => {
-            const result = scrapeResults[c.id];
-            if (!result?.success) return;
-            const items = result.insights?.[0]?.items || [];
-            items.forEach(item => {
-              const parts = item.split(' — ');
-              const name = parts[0]?.trim();
-              if (!name || name.length < 2) return;
-              const pricePart = parts.find(p => p.includes('$'));
-              const price = pricePart?.match(/\$[\d,.]+/)?.[0] || '';
-              const priceVal = parsePrice(price);
-              const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (!masterMap[key]) {
-                masterMap[key] = {
-                  name,
-                  category: categorize(name),
-                  sites: {},
-                };
-              }
-              if (price) masterMap[key].sites[c.name] = { price, value: priceVal };
-            });
-          });
-
-          const allProducts = Object.values(masterMap);
-          const categories = ['ALL', ...new Set(allProducts.map(p => p.category))].sort();
-
-          const filtered = allProducts
-            .filter(p => {
-              const matchCat = apFilter === 'ALL' || p.category === apFilter;
-              const matchSearch = !apSearch || p.name.toLowerCase().includes(apSearch.toLowerCase());
-              return matchCat && matchSearch;
-            })
-            .sort((a, b) => {
-              if (apSort === 'name') return a.name.localeCompare(b.name);
-              if (apSort === 'category') return a.category.localeCompare(b.category);
-              if (apSort === 'price') {
-                const aMin = Math.min(...Object.values(a.sites).map(s => s.value || 999));
-                const bMin = Math.min(...Object.values(b.sites).map(s => s.value || 999));
-                return aMin - bMin;
-              }
-              if (apSort === 'sites') return Object.keys(b.sites).length - Object.keys(a.sites).length;
-              return 0;
-            });
-
-          const allSites = [...new Set(allProducts.flatMap(p => Object.keys(p.sites)))];
-
-          return (
-            <div>
-              <h1 style={H1}>ALL PRODUCTS</h1>
-              <p style={SUB}>{allProducts.length} unique products detected across {competitors.filter(c => scrapeResults[c.id]?.success).length} scanned competitors</p>
-
-              {allProducts.length === 0 ? (
-                <div className="aria-card" style={CARD}>
-                  <h3 style={H3}>NO PRODUCTS YET</h3>
-                  <p style={P}>Scan at least one competitor to populate this list.</p>
-                  <button className="aria-btn-primary" style={{ ...BTN_PRIMARY, marginTop: '12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
-                </div>
-              ) : (
-                <>
-                  {/* Stats row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                    {[
-                      { label: 'Unique Products', value: allProducts.length },
-                      { label: 'With Prices', value: allProducts.filter(p => Object.keys(p.sites).length > 0).length },
-                      { label: 'Categories', value: categories.length - 1 },
-                      { label: 'Sites Scanned', value: allSites.length },
-                    ].map((s, i) => (
-                      <div key={i} style={STAT_CARD}>
-                        <div style={STAT_LABEL}>{s.label}</div>
-                        <div style={{ fontSize: '28px', color: '#f5e6e0', marginTop: '6px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>{s.value}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Controls */}
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <input
-                      type="text" placeholder="Search products..."
-                      value={apSearch} onChange={e => setApSearch(e.target.value)}
-                      style={{ flex: 1, minWidth: '180px', padding: '9px 14px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}
-                    />
-                    <select value={apSort} onChange={e => setApSort(e.target.value)}
-                      style={{ padding: '9px 12px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#aaa', fontSize: '12px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>
-                      <option value="name">Sort: Name A–Z</option>
-                      <option value="category">Sort: Category</option>
-                      <option value="price">Sort: Price (low)</option>
-                      <option value="sites">Sort: Most sites</option>
-                    </select>
-                    <select value={apFilter} onChange={e => setApFilter(e.target.value)}
-                      style={{ padding: '9px 12px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#aaa', fontSize: '12px', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>
-                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-
-                  {/* Product table */}
-                  <div className="aria-card" style={CARD}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: `${220 + 140 + allSites.length * 130}px` }}>
-                        <thead>
-                          <tr>
-                            <th style={{ padding: '10px 14px', fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', textAlign: 'left', borderBottom: '1px solid #252525', background: '#1a1a1a', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif", width: '220px' }}>Product</th>
-                            <th style={{ padding: '10px 14px', fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', textAlign: 'left', borderBottom: '1px solid #252525', background: '#1a1a1a', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif", width: '140px' }}>Category</th>
-                            {allSites.map(site => (
-                              <th key={site} style={{ padding: '10px 14px', fontSize: '10px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', textAlign: 'left', borderBottom: '1px solid #252525', background: '#1a1a1a', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif", width: '130px' }}>{site}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.map((p, i) => {
-                            const cc = CATEGORY_COLORS[p.category] || CATEGORY_COLORS['Other'];
-                            const sitePrices = Object.values(p.sites).map(s => s.value).filter(Boolean);
-                            const minPrice = sitePrices.length ? Math.min(...sitePrices) : null;
-                            return (
-                              <tr key={i} className="aria-row" style={{ background: i % 2 === 0 ? '#161616' : '#111' }}>
-                                <td style={{ padding: '10px 14px', fontSize: '13px', color: '#eee', fontWeight: '500', borderBottom: '1px solid #1e1e1e', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>{p.name}</td>
-                                <td style={{ padding: '10px 14px', borderBottom: '1px solid #1e1e1e' }}>
-                                  <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '99px', background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, fontWeight: '600', whiteSpace: 'nowrap', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>{p.category}</span>
-                                </td>
-                                {allSites.map(site => {
-                                  const sd = p.sites[site];
-                                  const isLow = sd?.value && sd.value === minPrice && sitePrices.length > 1;
-                                  return (
-                                    <td key={site} style={{ padding: '10px 14px', fontSize: '13px', color: isLow ? '#b0ffd8' : sd ? '#ccc' : '#2a2a2a', fontWeight: isLow ? '600' : '400', borderBottom: '1px solid #1e1e1e', fontFamily: "'Century Gothic','Trebuchet MS',sans-serif" }}>
-                                      {sd ? sd.price : '—'}
-                                      {isLow && <span style={{ fontSize: '9px', marginLeft: '5px', color: '#40c080', fontWeight: '700' }}>LOW</span>}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    {filtered.length === 0 && <p style={{ ...P, textAlign: 'center', padding: '24px', color: '#444' }}>No products match your filters.</p>}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })()}
+        {activePage === 'allproducts' && <AllProductsTab competitors={competitors} scrapeResults={scrapeResults} setActivePage={setActivePage} />}
 
         {/* ── PEPTIDE GUIDE ──────────────────────────────────────── */}
-        {activePage === 'peptideguide' && (() => {
-          const FF = "'Century Gothic', 'Trebuchet MS', sans-serif";
-          const [activeCategory, setActiveCategory] = useState('all');
-          const [search, setSearch] = useState('');
-
-          const PEPTIDES = [
-            // ── WEIGHT LOSS ──────────────────────────────────────────
-            { id:1, name:'Semaglutide', category:'Weight Loss', desc:'A GLP-1 receptor agonist that mimics the hormone released after eating. Signals the brain to reduce appetite and slows stomach emptying, making you feel fuller longer.', benefits:'Activates GLP-1 receptors to suppress appetite, slow gastric emptying, and improve insulin secretion — reducing caloric intake and improving glycaemic control.', simple:'It tells your brain you are full even when you have not eaten much, so you naturally eat less and lose weight.', dosage:'Start 0.25mg/week, increase to 0.5–2.4mg/week over 4–8 weeks.', notes:'Subcutaneous injection. Once weekly. Titrate slowly to reduce nausea. Cycle: ongoing with monitoring.' },
-            { id:2, name:'Tirzepatide', category:'Weight Loss', desc:'Dual GLP-1 and GIP receptor agonist — targets two metabolic pathways simultaneously. More effective than Semaglutide for fat loss in clinical trials.', benefits:'Dual agonism of GLP-1 and GIP receptors enhances insulin secretion, reduces glucagon, slows gastric emptying, and improves fat oxidation more than single-agonist therapy.', simple:'It pushes two "eat less and burn fat" buttons at the same time instead of one, so it works even better than Semaglutide.', dosage:'Start 2.5mg/week, increase by 2.5mg every 4 weeks up to 15mg/week.', notes:'Subcutaneous injection. Once weekly. Slower titration reduces GI side effects.' },
-            { id:3, name:'Retatrutide', category:'Weight Loss', desc:'Triple agonist targeting GLP-1, GIP, and glucagon receptors. The newest and most potent weight loss peptide class. Still in clinical trials but widely available.', benefits:'Triple receptor activation simultaneously reduces appetite via GLP-1/GIP, increases energy expenditure via glucagon receptor, and promotes visceral fat mobilisation.', simple:'It pushes three different fat-burning buttons at once — it is the most powerful weight loss peptide available right now.', dosage:'Start 2mg/week, increase gradually to 4–12mg/week over 3–6 months.', notes:'Subcutaneous injection. Longest titration period. Very powerful — start conservatively.' },
-            { id:4, name:'Cagrilintide', category:'Weight Loss', desc:'Amylin analogue that works via a completely different pathway from GLP-1. Often combined with Semaglutide (CagriSema) for synergistic effects.', benefits:'Mimics amylin to suppress glucagon, slow gastric emptying, and reduce food intake via central satiety pathways — complementary to GLP-1 mechanisms.', simple:'Works like a second "stop eating" signal using a totally different system in your body, making it a great partner to Semaglutide.', dosage:'0.16–2.4mg/week, titrate over 16–32 weeks.', notes:'Subcutaneous injection. Frequently combined with Semaglutide for additive fat loss.' },
-            { id:5, name:'AOD-9604', category:'Weight Loss', desc:'A modified fragment of human growth hormone (HGH) that specifically targets fat metabolism without affecting blood sugar or growth.', benefits:'Stimulates lipolysis (fat cell breakdown) and inhibits lipogenesis (new fat creation) via beta-3 adrenergic receptors, without IGF-1 stimulation or glycaemic impact.', simple:'It tells fat cells to melt away without messing with your blood sugar or making you grow taller — gentle and targeted fat loss.', dosage:'200–300mcg/day subcutaneous injection, taken fasted.', notes:'Best taken in the morning on an empty stomach. No need to cycle aggressively. Gentle and well-tolerated.' },
-
-            // ── MUSCLE GROWTH ─────────────────────────────────────────
-            { id:6, name:'MK-677 (Ibutamoren)', category:'Muscle Growth', desc:'A growth hormone secretagogue — stimulates the pituitary gland to release more natural GH and IGF-1. Oral tablet, not an injection.', benefits:'Mimics ghrelin to stimulate GH secretion from the pituitary, increasing downstream IGF-1 — promoting muscle protein synthesis, lipolysis, and anabolic recovery.', simple:'It tricks your body into making more of its own growth hormone, which helps build muscle, burn fat, and sleep deeper — all in a pill.', dosage:'10–25mg/day orally. Start at 10mg to assess hunger and water retention tolerance.', notes:'Oral. Can be taken daily. Causes significant hunger increase. Best taken before bed. Long-term cycles of 3–6 months are common.' },
-            { id:7, name:'CJC-1295', category:'Muscle Growth', desc:'A GHRH (Growth Hormone Releasing Hormone) analogue that stimulates the pituitary to release GH pulses. Usually combined with Ipamorelin for synergistic effect.', benefits:'Binds GHRH receptors on the pituitary to amplify and extend GH pulse frequency and amplitude, raising IGF-1 levels for sustained anabolic and lipolytic effects.', simple:'It nudges your brain to send more "grow and repair" signals to your body, helping build muscle and burn fat over time.', dosage:'300mcg 2–3x/week (with DAC) or 100mcg 2–3x/day (without DAC).', notes:'Subcutaneous injection. Almost always stacked with Ipamorelin. DAC version is longer-acting and requires less frequent dosing.' },
-            { id:8, name:'Ipamorelin', category:'Muscle Growth', desc:'A selective GHRP (Growth Hormone Releasing Peptide) that stimulates GH release with minimal side effects compared to older GHRPs. Considered the cleanest GH secretagogue.', benefits:'Selectively activates ghrelin receptors to produce clean GH pulses without elevating cortisol, prolactin, or ACTH — the safest GHRP available.', simple:'It sends a clean "release growth hormone now" message to your body without any of the unwanted side effects of older versions.', dosage:'200–300mcg 2–3x/day subcutaneous injection.', notes:'Best taken fasted or before bed. Almost always combined with CJC-1295. 3-month cycles with 1 month off.' },
-            { id:9, name:'Tesamorelin', category:'Muscle Growth', desc:'A GHRH analogue FDA-approved for visceral fat reduction in HIV patients. Strong GH-stimulating effects with excellent safety profile.', benefits:'Stimulates endogenous GH secretion via GHRH receptors, significantly reducing visceral adipose tissue and improving lean body mass — FDA-approved with published clinical data.', simple:'An FDA-approved peptide that melts belly fat and helps build lean muscle — it is one of the most trusted and well-studied options available.', dosage:'1–2mg/day subcutaneous injection.', notes:'One of the most clinically validated peptides. Excellent for body recomposition. Standard cycle 3–6 months.' },
-            { id:10, name:'IGF-1 LR3', category:'Muscle Growth', desc:'Insulin-like Growth Factor 1 — a downstream product of GH. Directly stimulates muscle cell growth and repair. More potent and targeted than GH.', benefits:'Binds IGF-1 receptors to directly stimulate myoblast proliferation, protein synthesis, and satellite cell activation — promoting both hypertrophy and hyperplasia.', simple:'It goes straight to your muscle cells and tells them to grow and multiply — faster and more directly than growth hormone itself.', dosage:'20–50mcg/day subcutaneous or intramuscular injection.', notes:'Short cycles of 4–6 weeks due to receptor desensitisation. Very powerful — start at lowest dose. Post-injection hyperglycemia possible.' },
-            { id:11, name:'HGH (Human Growth Hormone)', category:'Muscle Growth', desc:'The actual growth hormone molecule. Stimulates IGF-1 production in the liver, drives muscle growth, fat breakdown, and cellular repair throughout the body.', benefits:'Stimulates hepatic IGF-1 synthesis, promotes lipolysis, enhances nitrogen retention, increases lean muscle mass, improves bone density and connective tissue repair.', simple:'This is the real growth hormone — it tells your liver to make the building blocks that grow muscle, burn fat, and repair everything in your body.', dosage:'1–4 IU/day subcutaneous injection. Split into 2 doses for best results.', notes:'Most effective taken fasted in AM or before bed. Long cycles of 3–6 months minimum to see full effects. Expensive — verify purity via lab results.' },
-
-            // ── RECOVERY / HEALING ────────────────────────────────────
-            { id:12, name:'BPC-157', category:'Recovery / Healing', desc:'Body Protection Compound — a synthetic peptide derived from a protein in gastric juice. One of the most researched healing peptides. Works by upregulating growth factor receptors and promoting angiogenesis.', benefits:'Upregulates VEGF and other growth factor receptors, promotes angiogenesis, modulates nitric oxide signalling, and accelerates tendon, ligament, muscle, and gut tissue repair.', simple:'Think of it as a repair crew that shows up at injuries and speeds up healing everywhere in your body — muscles, tendons, gut, and more.', dosage:'200–400mcg/day subcutaneous or oral. Systemic: injection near injury site. Gut: oral capsule.', notes:'Can be taken orally for gut issues or injected for systemic/musculoskeletal injuries. No known toxicity. Safe for extended use.' },
-            { id:13, name:'TB-500 (Thymosin Beta-4)', category:'Recovery / Healing', desc:'A synthetic version of a protein found in high concentrations at injury sites. Promotes cell migration, blood vessel formation, and tissue regeneration throughout the body.', benefits:'Regulates actin polymerisation to promote cell migration and proliferation, stimulates angiogenesis, reduces pro-inflammatory cytokines, and accelerates systemic tissue regeneration.', simple:'It tells your body to send repair cells to everywhere that is damaged and helps grow new blood vessels to feed healing tissue — full-body recovery.', dosage:'2–2.5mg 2x/week during injury phase, then 2mg/week for maintenance.', notes:"Works systemically — doesn't need to be injected near injury site. Pairs extremely well with BPC-157. 4–6 week cycles." },
-            { id:14, name:'BPC-157 + TB-500 Blend', category:'Recovery / Healing', desc:'The most popular healing stack. BPC-157 targets local tissue repair while TB-500 provides systemic healing — together they cover both mechanisms for faster recovery.', benefits:'Combined local tissue repair (BPC-157 via growth factor upregulation) and systemic cellular migration/angiogenesis (TB-500 via actin regulation) — dual-mechanism comprehensive recovery.', simple:'BPC-157 fixes the specific injury site while TB-500 heals your whole body at the same time — together they are the fastest recovery stack available.', dosage:'BPC-157 250mcg + TB-500 1.25mg per injection, 2x/week.', notes:'The gold standard recovery protocol. Widely used by athletes. 4–6 week cycles. Injectable or BPC-157 oral + TB-500 injectable.' },
-            { id:15, name:'GHK-Cu (Copper Peptide)', category:'Recovery / Healing', desc:'A naturally occurring copper peptide found in human plasma, urine, and saliva. Powerful regenerative and anti-aging effects on skin and tissue.', benefits:'Activates TGF-beta and collagen gene expression, modulates MMP activity for tissue remodelling, promotes wound healing, stimulates hair follicle cycling, and reduces oxidative damage.', simple:'A copper-powered peptide that tells your skin and tissues to rebuild collagen, heal wounds faster, and even help hair grow — used in both injections and skin creams.', dosage:'1–2mg/day subcutaneous injection or topical application.', notes:'Available as injectable and topical cream. Dual use: systemic healing + cosmetic. Very well tolerated.' },
-            { id:16, name:'LL-37', category:'Recovery / Healing', desc:'A human antimicrobial peptide (cathelicidin) with immune-modulating properties. Naturally produced by the immune system in response to infection.', benefits:'Disrupts bacterial membrane integrity, modulates TLR signalling to regulate inflammatory response, promotes keratinocyte migration for wound closure, and stimulates angiogenesis.', simple:'Your own immune system makes this to fight infections and heal wounds — this is just a concentrated version that gives those healing powers a boost.', dosage:'100–200mcg/day subcutaneous injection.', notes:'Particularly useful for chronic infections, wound healing, and immune support. Modulates rather than over-stimulates immune response.' },
-
-            // ── ANTI-AGING ────────────────────────────────────────────
-            { id:17, name:'Epitalon', category:'Anti-Aging', desc:'A tetrapeptide (4 amino acids) that stimulates the pineal gland to produce melatonin and regulate telomere length. Often called the "fountain of youth" peptide.', benefits:'Stimulates pineal melatonin synthesis, activates telomerase to elongate telomeres, regulates circadian rhythm, and reduces oxidative stress markers associated with cellular aging.', simple:'It lengthens the protective caps on your DNA (like the plastic tips on shoelaces) so your cells age more slowly — and helps you sleep better too.', dosage:'5–10mg/day for 10–20 days, 2–3 cycles/year.', notes:'Short intensive cycles rather than daily use. Injectable or nasal spray. Most studied anti-aging peptide.' },
-            { id:18, name:'NAD+ (Nicotinamide Adenine Dinucleotide)', category:'Anti-Aging', desc:'A coenzyme found in every cell that declines with age. Critical for energy production, DNA repair, and cell signalling. One of the most researched longevity molecules.', benefits:'Essential cofactor for sirtuins and PARP enzymes involved in DNA repair, activates mitochondrial biogenesis, supports cellular redox reactions, and declines ~50% by age 60.', simple:'Every cell in your body uses this like a battery — when it runs low with age, everything slows down. Refilling it gives your cells energy to repair and run properly again.', dosage:'250–500mg/day oral or 500mg–1g IV infusion.', notes:'Oral has lower bioavailability than IV. NAD+ precursors (NMN, NR) are oral alternatives. Flush sensation common with rapid IV dosing.' },
-            { id:19, name:'MOTS-c', category:'Anti-Aging', desc:'A mitochondria-derived peptide that acts as a metabolic regulator. Naturally produced in the body but declines with age. Activates AMPK pathway.', benefits:'Activates AMPK to regulate glucose and lipid metabolism, improves insulin sensitivity, enhances mitochondrial function, and mimics the metabolic benefits of exercise at a cellular level.', simple:'It is like telling your cells to act like they just exercised — better energy, better fat burning, better metabolism — even when you are resting.', dosage:'5–10mg 2–3x/week subcutaneous injection.', notes:'Exercise mimetic — enhances benefits of physical activity. Stack with other anti-aging peptides. Short cycles of 4–8 weeks.' },
-            { id:20, name:'SS-31 (Elamipretide)', category:'Anti-Aging', desc:'A mitochondria-targeting tetrapeptide that binds to cardiolipin in the inner mitochondrial membrane. Protects and restores mitochondrial function.', benefits:'Binds cardiolipin to stabilise the inner mitochondrial membrane, preserves electron transport chain efficiency, reduces mitochondrial ROS production, and restores ATP synthesis in aged cells.', simple:'Mitochondria are the power plants of your cells — this peptide fixes the power plants so they stop leaking toxic waste and start making energy properly again.', dosage:'0.5–2mg/day subcutaneous injection.', notes:'One of the most exciting longevity peptides. Targets the root cause of cellular aging. Research ongoing. Very well tolerated.' },
-            { id:21, name:'N-Acetyl Epitalon Amidate', category:'Anti-Aging', desc:'An enhanced, more stable form of Epitalon. The acetylation and amidation increase bioavailability and half-life, making it more effective at lower doses.', benefits:'Same telomerase activation and melatonin regulation as Epitalon but with superior receptor binding affinity, enhanced metabolic stability, and extended half-life due to N-acetylation and C-terminal amidation.', simple:'The upgraded version of Epitalon — same DNA-protecting benefits but your body absorbs it better and it stays active longer, so you need less of it.', dosage:'2–5mg/day for 10–20 days, 2–3 cycles/year.', notes:'More potent than standard Epitalon. Preferred by many practitioners for improved stability.' },
-
-            // ── COGNITIVE / FOCUS ─────────────────────────────────────
-            { id:22, name:'Semax', category:'Cognitive / Focus', desc:'A synthetic analogue of ACTH (adrenocorticotropic hormone) developed in Russia. Enhances BDNF (brain-derived neurotrophic factor) production and dopamine/serotonin activity.', benefits:'Increases BDNF expression to support neuronal survival and synaptic plasticity, upregulates dopaminergic and serotonergic neurotransmission, and exerts neuroprotective effects via reduced neuroinflammation.', simple:'It gives your brain a fertiliser boost — helping brain cells grow, communicate faster, and making you feel more focused and in a better mood.', dosage:'200–600mcg/day as nasal spray or subcutaneous injection.', notes:'Nasal spray is most common. Fast-acting. Russian research drug with decades of clinical use. Cycle 2–4 weeks on, 2 weeks off.' },
-            { id:23, name:'N-Acetyl Semax Amidate', category:'Cognitive / Focus', desc:'Enhanced version of Semax with acetylation and amidation for increased stability and potency. More bioavailable and longer-lasting than standard Semax.', benefits:'All Semax mechanisms with enhanced CNS penetration, greater receptor binding affinity, and prolonged half-life — achieving equivalent effects at significantly lower doses.', simple:'The stronger version of Semax — crosses into the brain more easily and lasts longer, so a smaller amount gives you more focus and mental clarity.', dosage:'100–300mcg/day nasal spray.', notes:'More potent — start at lower doses. Preferred over standard Semax by many users.' },
-            { id:24, name:'Selank', category:'Cognitive / Focus', desc:'A synthetic analogue of tuftsin — an immunomodulatory peptide. Anxiolytic (anti-anxiety) effects without sedation. Developed in Russia as an anti-anxiety agent.', benefits:'Modulates GABAergic and serotonergic systems to reduce anxiety, enhances BDNF expression, stabilises enkephalin metabolism to improve mood, and exerts anxiolysis without benzodiazepine-like sedation or dependency.', simple:'It calms anxiety and sharpens focus at the same time — like turning down the noise in your head without making you sleepy or addicted.', dosage:'250–300mcg/day nasal spray, 2–3x/day.', notes:'Excellent for stress and anxiety without benzodiazepine downsides. Stack with Semax for cognitive + anxiety relief. Gentle and well-tolerated.' },
-            { id:25, name:'N-Acetyl Selank Amidate', category:'Cognitive / Focus', desc:'Enhanced form of Selank with superior stability and bioavailability. The amidated form has greater receptor affinity.', benefits:'All Selank mechanisms with improved enzymatic resistance, enhanced blood-brain barrier penetration, and greater GABAergic/serotonergic receptor binding affinity.', simple:'The upgraded Selank — gets into the brain more effectively and stays active longer, giving you calmer, clearer thinking with less product needed.', dosage:'100–200mcg/day nasal spray.', notes:'More potent than standard Selank — dose accordingly. Preferred form for consistent results.' },
-            { id:26, name:'5-Amino-1MQ', category:'Cognitive / Focus', desc:'A small molecule NNMT inhibitor that affects nicotinamide metabolism and NAD+ levels. Emerging metabolic and cognitive enhancer.', benefits:'Inhibits NNMT enzyme to redirect nicotinamide into NAD+ synthesis, activating SIRT1 and improving mitochondrial efficiency — with emerging data on adipocyte reduction and potential cognitive benefits.', simple:'It blocks a "waste enzyme" in your body so more fuel gets converted into energy instead of thrown away — better metabolism and sharper thinking as a result.', dosage:'50–100mg orally or 10mg reconstituted vial.', notes:'Research compound. Effects on metabolism well studied. Take with food. Cycle 4–8 weeks.' },
-
-            // ── HORMONAL / METABOLIC ─────────────────────────────────
-            { id:27, name:'Melanotan-2', category:'Hormonal / Metabolic', desc:'A synthetic analogue of alpha-MSH (melanocyte-stimulating hormone). Stimulates melanin production and has aphrodisiac properties.', benefits:'Activates MC1R receptors to stimulate melanogenesis (melanin production), MC3R/MC4R to suppress appetite and increase lipolysis, and MC4R centrally for aphrodisiac effects.', simple:'It activates your skin tanning system without needing the sun, and also works on the brain to reduce hunger and increase libido.', dosage:'0.25–0.5mg subcutaneous injection, starting dose 0.1mg.', notes:'Start very low — nausea and facial flushing common at first. Tanning effect requires some UV exposure. Loading phase then maintenance.' },
-            { id:28, name:'PT-141 (Bremelanotide)', category:'Hormonal / Metabolic', desc:'A melanocortin receptor agonist acting on the CNS to enhance sexual arousal — distinct from PDE5 inhibitors (Viagra). Works on brain pathways not blood flow.', benefits:'Activates hypothalamic MC4R receptors to increase dopaminergic activity in arousal pathways — addresses sexual dysfunction at the neurological level rather than via vasodilation.', simple:'Unlike Viagra which works on blood flow, this one works directly on the brain to turn on the desire and arousal centres — it works for both men and women.', dosage:'0.5–2mg subcutaneous injection or nasal spray, 1–2 hours before activity.', notes:'FDA-approved as Vyleesi for female sexual dysfunction. Brain-based not blood flow. Avoid if cardiovascular concerns.' },
-            { id:29, name:'Thymosin Alpha-1', category:'Hormonal / Metabolic', desc:'A thymic peptide that modulates the immune system. Naturally produced in the thymus gland and declines with age. FDA-approved in some countries.', benefits:'Upregulates T-cell maturation and dendritic cell function, enhances NK cell cytotoxicity, modulates Th1/Th2 balance, and increases IL-2 and IFN-gamma production for antiviral and antitumour immunity.', simple:'It trains and strengthens your immune army — helping your body fight viruses, infections, and even support cancer treatment more effectively.', dosage:'1.6mg 2x/week subcutaneous injection.', notes:'Used clinically in hepatitis B/C and cancer treatment. 4–6 week cycles. Well-studied immune modulator with excellent safety profile.' },
-            { id:30, name:'hCG (Human Chorionic Gonadotropin)', category:'Hormonal / Metabolic', desc:'A hormone that mimics LH (luteinising hormone) — stimulates the testes to produce testosterone. Used in TRT protocols to maintain testicular function.', benefits:'Mimics LH to stimulate Leydig cell testosterone synthesis and maintain intratesticular testosterone levels, preventing testicular atrophy and preserving spermatogenesis during exogenous androgen use.', simple:'Tells your testicles to keep working and making testosterone even when you are on TRT — prevents them from shrinking and keeps fertility options open.', dosage:'250–500 IU 2–3x/week subcutaneous injection.', notes:'Critical for men on TRT who want to preserve fertility. Requires prescription in most jurisdictions.' },
-            { id:31, name:'Enclomiphene', category:'Hormonal / Metabolic', desc:'A selective estrogen receptor modulator (SERM) that increases LH and FSH, stimulating natural testosterone production. Oral tablet.', benefits:'Blocks oestrogen receptors at the hypothalamus to increase GnRH pulsatility, elevating LH and FSH to stimulate endogenous testosterone production without suppressing the HPG axis.', simple:'It tricks your brain into thinking your testosterone is low, so it sends more signals to naturally make more — without shutting down your own system like TRT can.', dosage:'12.5–25mg/day orally.', notes:'Oral. Preferred over Clomiphene as it lacks the estrogenic isomer. Used for hypogonadism and post-cycle therapy.' },
-            { id:32, name:'KPV', category:'Hormonal / Metabolic', desc:'A tripeptide (Lys-Pro-Val) fragment of alpha-MSH with potent anti-inflammatory properties. Particularly effective for gut inflammation.', benefits:'Inhibits NF-kB pathway and pro-inflammatory cytokine production (IL-1β, TNF-α, IL-6), crosses the gut epithelial barrier intact, and reduces intestinal permeability in inflammatory bowel conditions.', simple:"A tiny 3-piece peptide that turns down the inflammation alarm in your gut — great for people with IBS, Crohn's, or any gut issues.", dosage:'300–500mcg/day oral or subcutaneous injection.', notes:"Oral works well for gut issues. Injectable for systemic effects. Very well tolerated. Can be used long-term." },
-            { id:33, name:'VIP (Vasoactive Intestinal Peptide)', category:'Hormonal / Metabolic', desc:'A neuropeptide found throughout the nervous system and gut. Regulates immune function, inflammation, and smooth muscle. Promising for CIRS and mold illness.', benefits:'Activates VPAC receptors to suppress pro-inflammatory cytokines, relax smooth muscle, regulate TH17/Treg balance, and restore neuroendocrine signalling disrupted by biotoxin illness.', simple:'A neuropeptide that calms inflammation throughout the nervous system and gut — particularly important for people dealing with mold illness or CIRS.', dosage:'50mcg 2x/day nasal spray.', notes:'Primarily used via nasal spray. Important in CIRS protocols. Requires diagnosis-appropriate use.' },
-            { id:34, name:'Pinealon', category:'Hormonal / Metabolic', desc:'A tripeptide (Glu-Asp-Arg) that targets brain cell activity, particularly pineal gland function. Russian-developed neuroprotective peptide.', benefits:'Penetrates the blood-brain barrier to modulate gene expression in neurons, reduces oxidative stress in brain tissue, supports pineal melatonin regulation, and demonstrates neuroprotective effects in aging models.', simple:'A peptide that crosses into the brain to protect brain cells from aging damage and help regulate your sleep hormone — used in intensive short cycles.', dosage:'10mg/day for 10 days, 2–4 cycles/year.', notes:'Short intensive cycles. Nasal spray or injection. Stack with Epitalon for comprehensive anti-aging protocol.' },
-          ];
-
-          const categories = ['all', 'Weight Loss', 'Muscle Growth', 'Recovery / Healing', 'Anti-Aging', 'Cognitive / Focus', 'Hormonal / Metabolic'];
-
-          const filtered = PEPTIDES.filter(p => {
-            const matchCat = activeCategory === 'all' || p.category === activeCategory;
-            const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.benefits.toLowerCase().includes(search.toLowerCase());
-            return matchCat && matchSearch;
-          });
-
-          const CC = CATEGORY_COLORS;
-          const catColor = (cat) => CC[cat] || CC['Other'];
-
-          return (
-            <div>
-              <h1 style={H1}>PEPTIDE GUIDE</h1>
-              <p style={SUB}>Reference library — {PEPTIDES.length} peptides across {categories.length - 1} categories</p>
-
-              {/* Search + filter */}
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <input
-                  type="text" placeholder="Search peptides or benefits..."
-                  value={search} onChange={e => setSearch(e.target.value)}
-                  style={{ flex: 1, minWidth: '200px', padding: '10px 14px', background: '#181818', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: FF }}
-                />
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {categories.map(cat => {
-                    const cc = cat === 'all' ? { bg:'#181818', border:'#555', text:'#aaa' } : catColor(cat);
-                    const isActive = activeCategory === cat;
-                    return (
-                      <button key={cat} onClick={() => setActiveCategory(cat)}
-                        style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '99px', border: `1px solid ${isActive ? cc.border : '#333'}`, background: isActive ? cc.bg : 'transparent', color: isActive ? cc.text : '#666', cursor: 'pointer', fontFamily: FF, transition: 'all 0.15s', fontWeight: isActive ? '600' : '400' }}>
-                        {cat === 'all' ? `All (${PEPTIDES.length})` : cat}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Peptide cards */}
-              <div style={{ display: 'grid', gap: '10px' }}>
-                {filtered.map(p => {
-                  const cc = catColor(p.category);
-                  return (
-                    <div key={p.id} style={{ background: '#181818', border: '1px solid #252525', borderRadius: '8px', padding: '18px 20px', transition: 'border-color 0.15s' }}
-                      className="aria-card">
-                      {/* Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#f5e6e0', margin: 0, fontFamily: FF }}>{p.name}</h3>
-                        <span style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '99px', background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, fontWeight: '600', fontFamily: FF, whiteSpace: 'nowrap' }}>{p.category}</span>
-                      </div>
-
-                      {/* 4 columns of info */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                        <div>
-                          <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '5px', fontFamily: FF }}>What it is</div>
-                          <p style={{ fontSize: '12px', color: '#bbb', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.desc}</p>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '8px', fontFamily: FF }}>Primary benefits</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div>
-                              <div style={{ fontSize: '9px', color: cc.text, fontWeight: '600', letterSpacing: '0.5px', marginBottom: '3px', fontFamily: FF, opacity: 0.8 }}>MEDICAL</div>
-                              <p style={{ fontSize: '12px', color: '#bbb', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.benefits}</p>
-                            </div>
-                            {p.simple && (
-                              <div style={{ borderTop: '1px solid #222', paddingTop: '8px' }}>
-                                <div style={{ fontSize: '9px', color: cc.text, fontWeight: '600', letterSpacing: '0.5px', marginBottom: '3px', fontFamily: FF, opacity: 0.8 }}>SIMPLE</div>
-                                <p style={{ fontSize: '12px', color: '#ddd', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.simple}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '5px', fontFamily: FF }}>Recommended dosage</div>
-                          <p style={{ fontSize: '12px', color: cc.text, margin: 0, lineHeight: '1.6', fontFamily: FF, fontWeight: '500' }}>{p.dosage}</p>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', marginBottom: '5px', fontFamily: FF }}>Key notes</div>
-                          <p style={{ fontSize: '12px', color: '#bbb', margin: 0, lineHeight: '1.6', fontFamily: FF }}>{p.notes}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <div style={{ ...CARD, textAlign: 'center', padding: '40px' }}>
-                    <p style={{ ...P, color: '#555' }}>No peptides found for "{search}"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
+        {activePage === 'peptideguide' && <PeptideGuideTab />}
 
 
                 {/* ── SETTINGS ───────────────────────────────────────────── */}
