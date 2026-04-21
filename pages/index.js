@@ -280,17 +280,17 @@ export default function Home() {
   td{padding:9px 12px;border-bottom:1px solid #f0f0f0}
   tr:nth-child(even) td{background:#fafafa}
   .cat{font-size:10px;padding:2px 8px;border-radius:99px;background:#eee;color:#555}
-  .low{color:#2a7a2a;font-weight:600}
+  .low{color:#0a7a4a;font-weight:600}
   .insight{padding:12px 16px;border-radius:6px;margin-bottom:10px;font-size:13px}
-  .insight.green{background:#f0f9f0;border-left:3px solid #4a9a4a;color:#2a5a2a}
-  .insight.red{background:#fdf0f0;border-left:3px solid #9a4a4a;color:#5a2a2a}
-  .insight.blue{background:#f0f0f9;border-left:3px solid #4a4a9a;color:#2a2a5a}
+  .insight.green{background:#e8fff4;border-left:3px solid #40c080;color:#0a4a2a}
+  .insight.red{background:#fff0f8;border-left:3px solid #cc60a0;color:#4a1030}
+  .insight.blue{background:#f0f4ff;border-left:3px solid #4080cc;color:#0a1a40}
   .footer{margin-top:40px;font-size:11px;color:#ccc;border-top:1px solid #eee;padding-top:16px}
 </style></head><body>
 <h1>ARIA Competitive Analysis Report</h1>
 <div class="meta">Generated: ${date} · ${comparison.length} products · ${allSites.length} competitors</div>
 <div class="stats">
-  <div class="stat"><div class="stat-label">Cheapest Overall</div><div class="stat-value" style="font-size:16px;color:#2a7a2a">${cheapestSite||'—'}</div></div>
+  <div class="stat"><div class="stat-label">Cheapest Overall</div><div class="stat-value" style="font-size:16px;color:#0a7a4a">${cheapestSite||'—'}</div></div>
   <div class="stat"><div class="stat-label">Products Tracked</div><div class="stat-value">${comparison.length}</div></div>
   <div class="stat"><div class="stat-label">Price Range</div><div class="stat-value" style="font-size:16px">${allPrices.length?`$${Math.min(...allPrices).toFixed(2)}–$${Math.max(...allPrices).toFixed(2)}`:'—'}</div></div>
   <div class="stat"><div class="stat-label">Price Changes</div><div class="stat-value" style="color:${priceChanges.length>0?'#cc7700':'#111'}">${priceChanges.length}</div></div>
@@ -404,7 +404,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               >
                 {item.label}
                 {item.id === 'analysis' && priceChanges.length > 0 && (
-                  <span style={{ background: '#cc7a7a', color: '#fff', borderRadius: '99px', padding: '1px 7px', fontSize: '9px', fontWeight: '700' }}>{priceChanges.length}</span>
+                  <span style={{ background: '#ffb0e0', color: '#fff', borderRadius: '99px', padding: '1px 7px', fontSize: '9px', fontWeight: '700' }}>{priceChanges.length}</span>
                 )}
               </button>
             ))}
@@ -446,26 +446,26 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
             {/* Price change banner */}
             {priceChanges.length > 0 && (
-              <div style={{ background: '#1e1a14', border: '1px solid #7a5a2a', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '14px', color: '#ccaa7a', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+              <div style={{ background: '#281e0a', border: '1px solid #cc9040', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '14px', color: '#ffe0a0', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
                   Recent Price Changes ({priceChanges.length})
                 </div>
                 {priceChanges.slice(0, 5).map((ch, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < Math.min(priceChanges.length, 5) - 1 ? '1px solid #2a2a1a' : 'none' }}>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < Math.min(priceChanges.length, 5) - 1 ? '1px solid #281e0a' : 'none' }}>
                     <div>
                       <span style={{ fontSize: '14px', color: '#ddd' }}>{ch.product}</span>
                       <span style={{ fontSize: '14px', color: '#aaa', marginLeft: '8px' }}>{ch.competitor}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px', color: '#aaa', textDecoration: 'line-through' }}>{ch.from}</span>
-                      <span style={{ fontSize: '14px', color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a', fontWeight: '600' }}>
+                      <span style={{ fontSize: '14px', color: ch.direction === 'down' ? '#b0ffd8' : '#ffb0e0', fontWeight: '600' }}>
                         {ch.to} {ch.direction === 'down' ? '↓' : '↑'} {Math.abs(ch.pct)}%
                       </span>
                     </div>
                   </div>
                 ))}
                 {priceChanges.length > 5 && (
-                  <button onClick={() => setActivePage('analysis')} style={{ marginTop: '10px', fontSize: '14px', color: '#ccaa7a', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                  <button onClick={() => setActivePage('analysis')} style={{ marginTop: '10px', fontSize: '14px', color: '#ffe0a0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
                     View all {priceChanges.length} changes in Analysis →
                   </button>
                 )}
@@ -491,7 +491,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 {rankedCompetitors.map((c, i) => (
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: i % 2 === 0 ? '#111' : '#161616', borderRadius: '6px', marginBottom: '4px' }}>
                     {/* Rank */}
-                    <div style={{ minWidth: '28px', height: '28px', borderRadius: '50%', background: i === 0 ? '#3a3020' : '#1a1a1a', border: `1px solid ${i === 0 ? '#ccaa7a' : '#2a2a2a'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: i === 0 ? '#ccaa7a' : '#555', flexShrink: 0 }}>
+                    <div style={{ minWidth: '28px', height: '28px', borderRadius: '50%', background: i === 0 ? '#3a3020' : '#1a1a1a', border: `1px solid ${i === 0 ? '#ffe0a0' : '#2a2a2a'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: i === 0 ? '#ffe0a0' : '#555', flexShrink: 0 }}>
                       #{i + 1}
                     </div>
                     {/* Name + link */}
@@ -510,15 +510,15 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     <div style={{ minWidth: '100px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                         <span style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase' }}>Score</span>
-                        <span style={{ fontSize: '14px', color: c.score >= 70 ? '#7acc7a' : c.score >= 40 ? '#cccc7a' : '#cc7a7a', fontWeight: '600' }}>{c.score}/100</span>
+                        <span style={{ fontSize: '14px', color: c.score >= 70 ? '#b0ffd8' : c.score >= 40 ? '#ffe0a0' : '#ffb0e0', fontWeight: '600' }}>{c.score}/100</span>
                       </div>
                       <div style={{ height: '4px', background: '#2a2a2a', borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${c.score}%`, background: c.score >= 70 ? '#4a9a4a' : c.score >= 40 ? '#9a9a4a' : '#9a4a4a', borderRadius: '2px', transition: 'width 0.3s' }} />
+                        <div style={{ height: '100%', width: `${c.score}%`, background: c.score >= 70 ? '#40c080' : c.score >= 40 ? '#cc9040' : '#cc60a0', borderRadius: '2px', transition: 'width 0.3s' }} />
                       </div>
                     </div>
                     {/* Cheapest badge */}
                     {cheapestSite === c.name && (
-                      <div style={{ fontSize: '9px', padding: '3px 8px', background: '#1a2a1a', border: '1px solid #4a9a4a', borderRadius: '99px', color: '#7acc7a', whiteSpace: 'nowrap' }}>CHEAPEST</div>
+                      <div style={{ fontSize: '9px', padding: '3px 8px', background: '#0a1e14', border: '1px solid #40c080', borderRadius: '99px', color: '#b0ffd8', whiteSpace: 'nowrap' }}>CHEAPEST</div>
                     )}
                     {/* Last scan */}
                     <div style={{ fontSize: '9px', color: '#777', minWidth: '70px', textAlign: 'right' }}>
@@ -572,7 +572,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {competitorChanges.length > 0 && (
-                          <span style={{ fontSize: '10px', padding: '3px 8px', background: '#1e1a14', border: '1px solid #7a5a2a', borderRadius: '99px', color: '#ccaa7a' }}>
+                          <span style={{ fontSize: '10px', padding: '3px 8px', background: '#281e0a', border: '1px solid #cc9040', borderRadius: '99px', color: '#ffe0a0' }}>
                             {competitorChanges.length} price change{competitorChanges.length > 1 ? 's' : ''}
                           </span>
                         )}
@@ -601,7 +601,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                               const cc = CATEGORY_COLORS[cat] || CATEGORY_COLORS['Other'];
                               const changed = priceChanges.find(ch => ch.competitor === c.name && ch.product.toLowerCase() === name.toLowerCase());
                               return (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: changed ? '#1e1a14' : '#111', borderRadius: '5px', border: `1px solid ${changed ? '#7a5a2a' : '#1e1e1e'}` }}>
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: changed ? '#281e0a' : '#111', borderRadius: '5px', border: `1px solid ${changed ? '#cc9040' : '#1e1e1e'}` }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
                                     <span style={{ fontSize: '14px', color: '#ccc' }}>{name}</span>
                                     {dosage && <span style={{ fontSize: '10px', color: '#777' }}>{dosage}</span>}
@@ -609,7 +609,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                     {changed && (
-                                      <span style={{ fontSize: '10px', color: changed.direction === 'down' ? '#7acc7a' : '#cc7a7a' }}>
+                                      <span style={{ fontSize: '10px', color: changed.direction === 'down' ? '#b0ffd8' : '#ffb0e0' }}>
                                         was {changed.from} {changed.direction === 'down' ? '↓' : '↑'}
                                       </span>
                                     )}
@@ -621,7 +621,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                           </div>
                         </div>
                       ) : (
-                        <p style={{ fontSize: '14px', color: '#cc7a7a' }}>Scan failed: {result.error}</p>
+                        <p style={{ fontSize: '14px', color: '#ffb0e0' }}>Scan failed: {result.error}</p>
                       )
                     )}
                   </div>
@@ -680,10 +680,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               <>
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
-                  <div style={STAT_CARD}><div style={STAT_LABEL}>Cheapest Overall</div><div style={{ fontSize: '14px', color: '#7acc7a', fontWeight: '500', marginTop: '6px' }}>{cheapestSite || '—'}</div></div>
+                  <div style={STAT_CARD}><div style={STAT_LABEL}>Cheapest Overall</div><div style={{ fontSize: '14px', color: '#b0ffd8', fontWeight: '500', marginTop: '6px' }}>{cheapestSite || '—'}</div></div>
                   <div style={STAT_CARD}><div style={STAT_LABEL}>Products Compared</div><div style={{ fontSize: '28px', color: '#f5e6e0', marginTop: '4px' }}>{comparison.length}</div></div>
                   <div style={STAT_CARD}><div style={STAT_LABEL}>Price Range</div><div style={{ fontSize: '14px', color: '#f5e6e0', fontWeight: '500', marginTop: '6px' }}>{allPrices.length ? `$${Math.min(...allPrices).toFixed(2)} – $${Math.max(...allPrices).toFixed(2)}` : '—'}</div></div>
-                  <div style={STAT_CARD}><div style={STAT_LABEL}>Price Changes</div><div style={{ fontSize: '28px', color: priceChanges.length > 0 ? '#ccaa7a' : '#f5e6e0', marginTop: '4px' }}>{priceChanges.length}</div></div>
+                  <div style={STAT_CARD}><div style={STAT_LABEL}>Price Changes</div><div style={{ fontSize: '28px', color: priceChanges.length > 0 ? '#ffe0a0' : '#f5e6e0', marginTop: '4px' }}>{priceChanges.length}</div></div>
                 </div>
 
                 {/* Price changes section */}
@@ -695,17 +695,17 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     </div>
                     <div style={{ display: 'grid', gap: '6px' }}>
                       {priceChanges.map((ch, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#1a1a14', border: '1px solid #2a2a1a', borderRadius: '6px' }}>
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#1a1a14', border: '1px solid #281e0a', borderRadius: '6px' }}>
                           <div>
                             <span style={{ fontSize: '14px', color: '#ddd', fontWeight: '500' }}>{ch.product}</span>
                             <span style={{ fontSize: '14px', color: '#888', marginLeft: '10px' }}>{ch.competitor}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ fontSize: '14px', color: '#888', textDecoration: 'line-through' }}>{ch.from}</span>
-                            <span style={{ fontSize: '14px', color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a', fontWeight: '600' }}>
+                            <span style={{ fontSize: '14px', color: ch.direction === 'down' ? '#b0ffd8' : '#ffb0e0', fontWeight: '600' }}>
                               {ch.to}
                             </span>
-                            <span style={{ fontSize: '14px', padding: '2px 8px', borderRadius: '99px', background: ch.direction === 'down' ? '#1a2a1a' : '#2a1a1a', border: `1px solid ${ch.direction === 'down' ? '#4a9a4a' : '#9a4a4a'}`, color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a' }}>
+                            <span style={{ fontSize: '14px', padding: '2px 8px', borderRadius: '99px', background: ch.direction === 'down' ? '#0a1e14' : '#280a1e', border: `1px solid ${ch.direction === 'down' ? '#40c080' : '#cc60a0'}`, color: ch.direction === 'down' ? '#b0ffd8' : '#ffb0e0' }}>
                               {ch.direction === 'down' ? '↓' : '↑'} {Math.abs(ch.pct)}%
                             </span>
                             <span style={{ fontSize: '10px', color: '#777' }}>{ch.detectedAt ? new Date(ch.detectedAt).toLocaleDateString() : ''}</span>
@@ -715,41 +715,6 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     </div>
                   </div>
                 )}
-
-                {/* Key insights */}
-                <div style={{ ...CARD, marginBottom: '16px' }}>
-                  <h3 style={H3}>KEY INSIGHTS</h3>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {cheapestSite && (
-                      <div style={{ padding: '12px', background: '#1a2a1a', border: '1px solid #4a9a4a', borderRadius: '6px' }}>
-                        <p style={{ fontSize: '14px', color: '#7acc7a', margin: 0 }}><strong>Cheapest overall:</strong> {cheapestSite} has the lowest average pricing across all tracked products.</p>
-                      </div>
-                    )}
-                    {(() => {
-                      const overpriced = comparison.filter(p => {
-                        const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
-                        if (prices.length < 2) return false;
-                        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-                        return Math.max(...prices) > avg * 1.3;
-                      });
-                      return overpriced.length > 0 ? (
-                        <div style={{ padding: '12px', background: '#2a1a1a', border: '1px solid #9a4a4a', borderRadius: '6px' }}>
-                          <p style={{ fontSize: '14px', color: '#cc7a7a', margin: 0 }}><strong>Price gaps detected:</strong> {overpriced.slice(0, 3).map(p => p.name).join(', ')} show 30%+ variation across sites.</p>
-                        </div>
-                      ) : null;
-                    })()}
-                    {(() => {
-                      const cats = {};
-                      comparison.forEach(p => { cats[p.category] = (cats[p.category] || 0) + 1; });
-                      const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
-                      return top ? (
-                        <div style={{ padding: '12px', background: '#1a1a2a', border: '1px solid #4a4a9a', borderRadius: '6px' }}>
-                          <p style={{ fontSize: '14px', color: '#7a7acc', margin: 0 }}><strong>Most competitive category:</strong> {top[0]} with {top[1]} products tracked.</p>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
 
                 {/* Comparison table */}
                 {(() => {
@@ -796,10 +761,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                               const cat = CATEGORY_COLORS[p.category] || CATEGORY_COLORS['Other'];
                               const hasChange = priceChanges.some(ch => ch.product.toLowerCase() === p.name.toLowerCase());
                               return (
-                                <div key={i} style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '130px').join(' ')}`, background: hasChange ? '#1a1a14' : i % 2 === 0 ? '#161616' : '#111', borderRadius: '4px', border: hasChange ? '1px solid #2a2a1a' : '1px solid transparent' }}>
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '130px').join(' ')}`, background: hasChange ? '#1a1a14' : i % 2 === 0 ? '#161616' : '#111', borderRadius: '4px', border: hasChange ? '1px solid #281e0a' : '1px solid transparent' }}>
                                   <div style={{ padding: '8px', fontSize: '14px', color: '#ddd', alignSelf: 'center', wordBreak: 'break-word' }}>
                                     {p.name}
-                                    {hasChange && <span style={{ marginLeft: '6px', fontSize: '9px', color: '#ccaa7a' }}>↕</span>}
+                                    {hasChange && <span style={{ marginLeft: '6px', fontSize: '9px', color: '#ffe0a0' }}>↕</span>}
                                   </div>
                                   <div style={{ padding: '8px', alignSelf: 'center' }}>
                                     <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '99px', background: cat.bg, border: `1px solid ${cat.border}`, color: cat.text, whiteSpace: 'nowrap' }}>{p.category}</span>
@@ -808,9 +773,9 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                                     const sd = p.sites[site];
                                     const isLowest = sd?.value && sd.value === minPrice && prices.length > 1;
                                     return (
-                                      <div key={site} style={{ padding: '8px', fontSize: '14px', color: isLowest ? '#7acc7a' : sd ? '#ccc' : '#2a2a2a', fontWeight: isLowest ? '600' : '400', alignSelf: 'center' }}>
+                                      <div key={site} style={{ padding: '8px', fontSize: '14px', color: isLowest ? '#b0ffd8' : sd ? '#ccc' : '#2a2a2a', fontWeight: isLowest ? '600' : '400', alignSelf: 'center' }}>
                                         {sd ? sd.price : '—'}
-                                        {isLowest && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#4a9a4a' }}>LOW</span>}
+                                        {isLowest && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#40c080' }}>LOW</span>}
                                       </div>
                                     );
                                   })}
@@ -977,7 +942,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             <div className="aria-card" style={CARD}>
               <h3 style={H3}>DATA MANAGEMENT</h3>
               <p style={P}>All data is saved in your browser and survives page refreshes. Includes competitors, scan results, and price change history.</p>
-              <button style={{ ...BTN, marginTop: '12px', borderColor: '#cc7a7a', color: '#cc7a7a' }} onClick={() => {
+              <button style={{ ...BTN, marginTop: '12px', borderColor: '#ffb0e0', color: '#ffb0e0' }} onClick={() => {
                 if (window.confirm('Clear ALL data? This cannot be undone.')) {
                   setCompetitors([]); setScrapeResults({}); setPrevScrapeResults({}); setPriceChanges([]);
                   ['aria_competitors','aria_results','aria_prev_results','aria_changes'].forEach(k => localStorage.removeItem(k));
