@@ -6,207 +6,227 @@ export default async function handler(req, res) {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
+  const baseUrl = url.replace(/\/$/, '').split('/').slice(0, 3).join('/');
+
   try {
-    // Try multiple page variants to get the most data
-    const urlsToTry = [url];
-
-    // Add shop/products page if it looks like an ecommerce site
-    const baseUrl = url.replace(/\/$/, '');
-    urlsToTry.push(`${baseUrl}/shop`);
-    urlsToTry.push(`${baseUrl}/products`);
-    urlsToTry.push(`${baseUrl}/product-category/all-products`);
-
-    let bestHtml = '';
-    let bestTitle = '';
-    let successUrl = url;
-
-    for (const tryUrl of urlsToTry) {
-      try {
-        const response = await fetch(tryUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Cache-Control': 'no-cache',
-          },
-          signal: AbortSignal.timeout(12000),
-        });
-
-        if (response.ok) {
-          const html = await response.text();
-          // Prefer pages with more product data
-          if (html.includes('woocommerce') || html.includes('product') || html.length > bestHtml.length) {
-            bestHtml = html;
-            bestTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || '';
-            successUrl = tryUrl;
-          }
-        }
-      } catch (e) {
-        // Continue to next URL
-      }
-    }
-
-    if (!bestHtml) {
+    const html = await fetchHTML(url);
+    if (!html) {
       return res.status(200).json({ success: false, error: 'Could not access this website.', url });
     }
 
-    const html = bestHtml;
+    const title = decodeHTML(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || '');
 
-    // ── PRODUCT EXTRACTION ──────────────────────────────────────────
-
-    // Method 1: WooCommerce structured product data
-    const products = [];
-
-    // Extract product names from WooCommerce markup
-    const wcProductRegex = /<(?:h2|h3)[^>]*class="[^"]*woocommerce-loop-product__title[^"]*"[^>]*>([^<]+)<\/(?:h2|h3)>/gi;
-    let wcMatch;
-    const wcNames = [];
-    while ((wcMatch = wcProductRegex.exec(html)) !== null) {
-      wcNames.push(wcMatch[1].trim());
-    }
-
-    // Extract prices from WooCommerce
-    const wcPriceRegex = /<span[^>]*class="[^"]*woocommerce-Price-amount[^"]*"[^>]*>[\s\S]*?<\/span>/gi;
-    const wcPriceHtml = html.match(wcPriceRegex) || [];
-    const wcPrices = wcPriceHtml.map(p => p.replace(/<[^>]+>/g, '').trim()).filter(p => p.length > 0 && p.length < 30);
-
-    // Match product names with prices
-    if (wcNames.length > 0) {
-      wcNames.forEach((name, i) => {
-        const price = wcPrices[i * 2] || wcPrices[i] || '';
-        products.push(`${name}${price ? ' — ' + price : ''}`);
+    // Method 1: WooCommerce REST API
+    const wooProducts = await tryWooCommerceAPI(baseUrl);
+    if (wooProducts.length > 0) {
+      return res.status(200).json({
+        success: true, url, title, method: 'WooCommerce API',
+        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: wooProducts }],
+        scrapedAt: new Date().toISOString(),
       });
     }
 
-    // Method 2: JSON-LD structured data (most reliable)
-    const jsonLdMatches = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
-    const jsonProducts = [];
-    jsonLdMatches.forEach(block => {
-      try {
-        const json = JSON.parse(block.replace(/<script[^>]*>|<\/script>/gi, ''));
-        const items = Array.isArray(json) ? json : [json];
-        items.forEach(item => {
-          if (item['@type'] === 'Product' || item['@type'] === 'ItemList') {
-            if (item.name && item.offers) {
-              const price = item.offers.price || item.offers.lowPrice || '';
-              const currency = item.offers.priceCurrency || '';
-              jsonProducts.push(`${item.name} — ${price} ${currency}`.trim());
-            }
-            if (item.itemListElement) {
-              item.itemListElement.forEach(el => {
-                if (el.name) jsonProducts.push(el.name);
-              });
-            }
-          }
-        });
-      } catch (e) {}
-    });
-
-    // Method 3: Generic price + nearby text extraction
-    const cleanHtml = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ');
-
-    // Find price patterns with surrounding context
-    const priceContextRegex = /([A-Z][A-Za-z\s\-+()]{3,50})\s*[\n\r]*\s*(\$[\d,]+(?:\.\d{2})?\s*(?:CAD|USD|EUR)?)/g;
-    const contextMatches = [];
-    let ctxMatch;
-    const cleanForContext = cleanHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    while ((ctxMatch = priceContextRegex.exec(cleanForContext)) !== null && contextMatches.length < 10) {
-      const name = ctxMatch[1].trim();
-      const price = ctxMatch[2].trim();
-      if (name.length > 3 && name.length < 60 && !name.includes('{') && !name.includes('function')) {
-        contextMatches.push(`${name} — ${price}`);
-      }
+    // Method 2: JSON-LD
+    const jsonLdProducts = extractJSONLD(html);
+    if (jsonLdProducts.length > 0) {
+      return res.status(200).json({
+        success: true, url, title, method: 'Structured Data',
+        insights: [
+          { type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: jsonLdProducts },
+          ...extractGeneralInsights(html),
+        ],
+        scrapedAt: new Date().toISOString(),
+      });
     }
 
-    // Method 4: All prices on the page
-    const cleanText = cleanHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    const allPrices = [...new Set((cleanText.match(/\$[\d,]+(?:\.\d{2})?\s*(?:CAD|USD|EUR|AUD)?/g) || []).map(p => p.trim()))].slice(0, 8);
-
-    // Method 5: Product names from title tags and headings
-    const headingRegex = /<h[1-4][^>]*>([^<]{3,80})<\/h[1-4]>/gi;
-    const headings = [];
-    let hMatch;
-    while ((hMatch = headingRegex.exec(html)) !== null && headings.length < 8) {
-      const text = hMatch[1].replace(/<[^>]+>/g, '').trim();
-      if (text.length > 3 && text.length < 80 && !text.includes('{') && !text.includes('//') && !text.match(/^[\d\s$.,]+$/)) {
-        headings.push(text);
-      }
+    // Method 3: Direct HTML product extraction
+    const directProducts = extractDirectProducts(html);
+    if (directProducts.length > 0) {
+      return res.status(200).json({
+        success: true, url, title, method: 'Direct HTML',
+        insights: [
+          { type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: directProducts },
+          ...extractGeneralInsights(html),
+        ],
+        scrapedAt: new Date().toISOString(),
+      });
     }
 
-    // Method 6: Extract sentences mentioning products/features/launches
-    const sentences = cleanText.match(/[A-Z][^.!?]{20,200}[.!?]/g) || [];
-    const productKeywords = ['launch', 'new', 'introduc', 'announc', 'now available', 'coming soon', 'update', 'release', 'feature', 'integrat'];
-    const productSentences = sentences
-      .filter(s => productKeywords.some(k => s.toLowerCase().includes(k)))
-      .filter(s => !s.includes('function') && !s.includes('{') && !s.includes('var ') && s.length < 150)
-      .slice(0, 4);
-
-    // Meta description
+    // Method 4: General fallback
+    const generalInsights = extractGeneralInsights(html);
     const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{10,300})["']/i)?.[1]?.trim() || '';
-
-    // ── BUILD INSIGHTS ──────────────────────────────────────────────
-
-    const insights = [];
-
-    // Best product+price data — prioritize JSON-LD, then WooCommerce, then context
-    const bestProducts = jsonProducts.length > 0 ? jsonProducts :
-                         products.length > 0 ? products :
-                         contextMatches.length > 0 ? contextMatches : [];
-
-    if (bestProducts.length > 0) {
-      insights.push({
-        type: 'PRODUCTS & PRICING',
-        tag: 'PRODUCTS',
-        items: bestProducts.slice(0, 8),
-      });
-    } else if (allPrices.length > 0) {
-      insights.push({
-        type: 'PRICING DETECTED',
-        tag: 'PRICING',
-        items: allPrices,
-      });
-    }
-
-    if (productSentences.length > 0) {
-      insights.push({
-        type: 'PRODUCT UPDATES',
-        tag: 'UPDATES',
-        items: productSentences,
-      });
-    }
-
-    if (headings.length > 0) {
-      insights.push({
-        type: 'HOMEPAGE CONTENT',
-        tag: 'HOMEPAGE',
-        items: headings.slice(0, 6),
-      });
-    }
-
-    if (metaDesc) {
-      insights.push({
-        type: 'SITE DESCRIPTION',
-        tag: 'INFO',
-        items: [metaDesc],
-      });
-    }
+    if (metaDesc) generalInsights.push({ type: 'SITE DESCRIPTION', tag: 'INFO', items: [decodeHTML(metaDesc)] });
 
     return res.status(200).json({
-      success: true,
-      url: successUrl,
-      title: bestTitle || 'No title found',
-      metaDesc,
-      insights,
+      success: true, url, title, method: 'General',
+      insights: generalInsights,
       scrapedAt: new Date().toISOString(),
     });
 
   } catch (error) {
-    return res.status(200).json({
-      success: false,
-      error: error.message || 'Failed to fetch website',
-      url,
-    });
+    return res.status(200).json({ success: false, error: error.message || 'Failed to fetch', url });
   }
+}
+
+// Decode HTML entities
+function decodeHTML(str) {
+  if (!str) return '';
+  return str
+    .replace(/&#36;/g, '$')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '—')
+    .replace(/&#8212;/g, '—')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+    .replace(/&\w+;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Fetch HTML
+async function fetchHTML(url) {
+  try {
+    const r = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!r.ok) return null;
+    return await r.text();
+  } catch { return null; }
+}
+
+// WooCommerce REST API
+async function tryWooCommerceAPI(baseUrl) {
+  try {
+    const r = await fetch(`${baseUrl}/wp-json/wc/v3/products?per_page=50&status=publish`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return [];
+    const products = await r.json();
+    if (!Array.isArray(products) || products.length === 0) return [];
+    return products.map(p => {
+      const price = p.sale_price || p.price || p.regular_price || '';
+      const weight = p.weight ? `${p.weight}` : '';
+      return `${p.name}${weight ? ` ${weight}` : ''}${price ? ` — $${price}` : ''}`;
+    }).filter(Boolean);
+  } catch { return []; }
+}
+
+// JSON-LD
+function extractJSONLD(html) {
+  const results = [];
+  const blocks = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  blocks.forEach(block => {
+    try {
+      const json = JSON.parse(block.replace(/<\/?script[^>]*>/gi, ''));
+      const items = Array.isArray(json) ? json : [json];
+      items.forEach(item => {
+        const nodes = item['@graph'] ? item['@graph'] : [item];
+        nodes.forEach(node => {
+          if (node['@type'] === 'Product' && node.name) {
+            const price = node.offers?.price || node.offers?.lowPrice || '';
+            const currency = node.offers?.priceCurrency || '';
+            results.push(decodeHTML(`${node.name}${price ? ` — $${price} ${currency}` : ''}`).trim());
+          }
+        });
+      });
+    } catch {}
+  });
+  return results;
+}
+
+// Direct product extraction — finds name + dosage + price
+function extractDirectProducts(html) {
+  const results = [];
+  const skipWords = ['copyright', 'shipping', 'faq', 'why choose', 'contact', 'choose us', 'products', 'shipping and delivery', 'home', 'evolve'];
+
+  // Strip scripts and styles
+  const cleaned = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+  // Find all h2/h3/h4 headings — product names live here
+  const headingRegex = /<h[234][^>]*>([\s\S]*?)<\/h[234]>/gi;
+  let match;
+  const headings = [];
+  while ((match = headingRegex.exec(cleaned)) !== null) {
+    const text = decodeHTML(match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+    if (
+      text.length > 2 &&
+      text.length < 100 &&
+      !text.includes('{') &&
+      !text.includes('function') &&
+      !skipWords.some(w => text.toLowerCase().includes(w))
+    ) {
+      headings.push({ text, index: match.index });
+    }
+  }
+
+  // For each product heading, look for dosage and price nearby
+  headings.forEach(heading => {
+    // Get the next 800 characters after the heading
+    const nearby = cleaned.substring(heading.index, heading.index + 800);
+    const nearbyText = decodeHTML(nearby.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
+
+    // Extract dosage — e.g. "10 mg", "10ml", "12.5 mg / 50 Tablets", "30 ml"
+    const dosageMatch = nearbyText.match(
+      /(\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|capsules?|vials?|tabs?)(?:\s*\/\s*\d+\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|capsules?|vials?|tabs?))?(?:\s*\/\s*\d+\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|capsules?|vials?))?)/i
+    );
+
+    // Extract price — e.g. "$90.00"
+    const priceMatch = nearbyText.match(/\$[\d,]+(?:\.\d{2})?/);
+
+    const dosage = dosageMatch?.[0]?.trim() || '';
+    const price = priceMatch?.[0]?.trim() || '';
+
+    if (price) {
+      // Format: "Product Name — 10 mg — $90.00"
+      const entry = [heading.text, dosage, price].filter(Boolean).join(' — ');
+      results.push(entry);
+    } else if (dosage) {
+      // No price but has dosage
+      results.push(`${heading.text} — ${dosage}`);
+    } else {
+      // Just the name if nothing else found
+      results.push(heading.text);
+    }
+  });
+
+  // Remove duplicates and limit
+  return [...new Set(results)].filter(Boolean).slice(0, 25);
+}
+
+// General insights fallback
+function extractGeneralInsights(html) {
+  const insights = [];
+  const cleanText = decodeHTML(html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ').trim());
+
+  // All prices
+  const prices = [...new Set((cleanText.match(/\$[\d,]+(?:\.\d{2})?/g) || []))].slice(0, 10);
+  if (prices.length > 0) insights.push({ type: 'ALL PRICES FOUND', tag: 'PRICING', items: prices });
+
+  // Headings
+  const headingRegex = /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi;
+  const headings = [];
+  let hm;
+  while ((hm = headingRegex.exec(html)) !== null && headings.length < 8) {
+    const text = decodeHTML(hm[1].replace(/<[^>]+>/g, '').trim());
+    if (text.length > 3 && text.length < 80 && !text.includes('{')) headings.push(text);
+  }
+  if (headings.length > 0) insights.push({ type: 'PAGE SECTIONS', tag: 'HOMEPAGE', items: headings });
+
+  return insights;
 }
