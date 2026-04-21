@@ -68,6 +68,8 @@ export default function Home() {
   const [form, setForm] = useState({ name: '', website: '' });
   const [scraping, setScraping] = useState({});
   const [scrapeResults, setScrapeResults] = useState({});
+  const [analysisFilter, setAnalysisFilter] = useState('ALL');
+  const [analysisSortBy, setAnalysisSortBy] = useState('name');
 
   // ── Local storage persistence ────────────────────────────────────
   useEffect(() => {
@@ -413,76 +415,73 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Category filter */}
+
+
+                {/* Comparison table — uses top-level analysisFilter + analysisSortBy */}
                 {(() => {
-                  const [filter, setFilter] = useState('ALL');
-                  const [sortBy, setSortBy] = useState('name');
                   const categories = ['ALL', ...new Set(comparison.map(p => p.category))];
+                  const allSites = [...new Set(comparison.flatMap(p => Object.keys(p.sites)))];
                   const filtered = comparison
-                    .filter(p => filter === 'ALL' || p.category === filter)
+                    .filter(p => analysisFilter === 'ALL' || p.category === analysisFilter)
                     .sort((a, b) => {
-                      if (sortBy === 'name') return a.name.localeCompare(b.name);
-                      if (sortBy === 'category') return a.category.localeCompare(b.category);
-                      if (sortBy === 'price') {
+                      if (analysisSortBy === 'name') return a.name.localeCompare(b.name);
+                      if (analysisSortBy === 'category') return a.category.localeCompare(b.category);
+                      if (analysisSortBy === 'price') {
                         const aMin = Math.min(...Object.values(a.sites).map(s => s.value || 999));
                         const bMin = Math.min(...Object.values(b.sites).map(s => s.value || 999));
                         return aMin - bMin;
                       }
                       return 0;
                     });
-
-                  const allSites = [...new Set(comparison.flatMap(p => Object.keys(p.sites)))];
-
                   return (
                     <div style={CARD}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
                         <h3 style={{ ...H3, margin: 0 }}>PRODUCT COMPARISON TABLE</h3>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '5px 10px', background: '#111', border: '1px solid #333', borderRadius: '5px', color: '#aaa', fontSize: '11px', fontFamily: 'inherit' }}>
+                          <select value={analysisSortBy} onChange={e => setAnalysisSortBy(e.target.value)} style={{ padding: '5px 10px', background: '#111', border: '1px solid #333', borderRadius: '5px', color: '#aaa', fontSize: '11px', fontFamily: 'inherit' }}>
                             <option value="name">Sort: Name</option>
                             <option value="category">Sort: Category</option>
                             <option value="price">Sort: Price (low)</option>
                           </select>
-                          <select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: '5px 10px', background: '#111', border: '1px solid #333', borderRadius: '5px', color: '#aaa', fontSize: '11px', fontFamily: 'inherit' }}>
+                          <select value={analysisFilter} onChange={e => setAnalysisFilter(e.target.value)} style={{ padding: '5px 10px', background: '#111', border: '1px solid #333', borderRadius: '5px', color: '#aaa', fontSize: '11px', fontFamily: 'inherit' }}>
                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </div>
                       </div>
-
-                      {/* Table header */}
-                      <div style={{ display: 'grid', gridTemplateColumns: `2fr 1fr ${allSites.map(() => '1fr').join(' ')}`, gap: '1px', marginBottom: '4px' }}>
-                        {['PRODUCT', 'CATEGORY', ...allSites].map((h, i) => (
-                          <div key={i} style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>{h}</div>
-                        ))}
-                      </div>
-
-                      {/* Table rows */}
-                      <div style={{ display: 'grid', gap: '3px' }}>
-                        {filtered.map((p, i) => {
-                          const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
-                          const minPrice = prices.length ? Math.min(...prices) : null;
-                          const cat = CATEGORY_COLORS[p.category] || CATEGORY_COLORS['Other'];
-                          return (
-                            <div key={i} style={{ display: 'grid', gridTemplateColumns: `2fr 1fr ${allSites.map(() => '1fr').join(' ')}`, gap: '1px', background: i % 2 === 0 ? '#161616' : '#111', borderRadius: '4px', padding: '2px 0' }}>
-                              <div style={{ padding: '8px', fontSize: '12px', color: '#ddd', alignSelf: 'center' }}>{p.name}</div>
-                              <div style={{ padding: '8px', alignSelf: 'center' }}>
-                                <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '99px', background: cat.bg, border: `1px solid ${cat.border}`, color: cat.text, whiteSpace: 'nowrap' }}>{p.category}</span>
-                              </div>
-                              {allSites.map(site => {
-                                const siteData = p.sites[site];
-                                const isLowest = siteData?.value && siteData.value === minPrice && prices.length > 1;
-                                return (
-                                  <div key={site} style={{ padding: '8px', fontSize: '12px', color: isLowest ? '#7acc7a' : siteData ? '#ccc' : '#333', fontWeight: isLowest ? '600' : '400', alignSelf: 'center' }}>
-                                    {siteData ? siteData.price : '—'}
-                                    {isLowest && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#4a9a4a' }}>LOW</span>}
+                      <div style={{ overflowX: 'auto' }}>
+                        <div style={{ minWidth: `${200 + 140 + allSites.length * 120}px` }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '120px').join(' ')}`, gap: '1px', marginBottom: '4px' }}>
+                            {['PRODUCT', 'CATEGORY', ...allSites].map((h, i) => (
+                              <div key={i} style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>{h}</div>
+                            ))}
+                          </div>
+                          <div style={{ display: 'grid', gap: '3px' }}>
+                            {filtered.map((p, i) => {
+                              const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
+                              const minPrice = prices.length ? Math.min(...prices) : null;
+                              const cat = CATEGORY_COLORS[p.category] || CATEGORY_COLORS['Other'];
+                              return (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '120px').join(' ')}`, gap: '1px', background: i % 2 === 0 ? '#161616' : '#111', borderRadius: '4px' }}>
+                                  <div style={{ padding: '8px', fontSize: '12px', color: '#ddd', alignSelf: 'center', wordBreak: 'break-word' }}>{p.name}</div>
+                                  <div style={{ padding: '8px', alignSelf: 'center' }}>
+                                    <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '99px', background: cat.bg, border: `1px solid ${cat.border}`, color: cat.text, whiteSpace: 'nowrap' }}>{p.category}</span>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          );
-                        })}
+                                  {allSites.map(site => {
+                                    const sd = p.sites[site];
+                                    const isLowest = sd?.value && sd.value === minPrice && prices.length > 1;
+                                    return (
+                                      <div key={site} style={{ padding: '8px', fontSize: '12px', color: isLowest ? '#7acc7a' : sd ? '#ccc' : '#333', fontWeight: isLowest ? '600' : '400', alignSelf: 'center' }}>
+                                        {sd ? sd.price : '—'}
+                                        {isLowest && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#4a9a4a' }}>LOW</span>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
-
                       {filtered.length === 0 && <p style={{ ...P, marginTop: '12px' }}>No products in this category yet.</p>}
                     </div>
                   );
