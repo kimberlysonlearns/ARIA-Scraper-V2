@@ -365,11 +365,11 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
       <aside style={{ width: '240px', minWidth: '240px', background: '#141414', padding: '0', borderRight: '1px solid #252525', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', flexShrink: 0 }}>
 
         {/* Logo block */}
-        <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid #222' }}>
-          {/* Icon */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '10px' }}>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#1e1218', border: '1px solid #e8a8b8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <div style={{ padding: '28px 20px 22px', borderBottom: '1px solid #222' }}>
+          {/* Icon + ARIA wordmark */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#1e1218', border: '1px solid #e8a8b8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="28" height="28" viewBox="0 0 20 20" fill="none">
                 <circle cx="10" cy="10" r="2.5" fill="#e8a8b8"/>
                 <circle cx="3.5" cy="5" r="1.5" fill="#f5e6e0" opacity="0.7"/>
                 <circle cx="16.5" cy="5" r="1.5" fill="#f5e6e0" opacity="0.7"/>
@@ -383,13 +383,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 <line x1="16.5" y1="5" x2="16.5" y2="15" stroke="#f5e6e0" strokeWidth="0.5" opacity="0.3"/>
               </svg>
             </div>
-            <div>
-              <div style={{ fontSize: '19px', color: '#f5e6e0', letterSpacing: '4px', fontWeight: '600', lineHeight: 1 }}>ARIA</div>
-              <div style={{ fontSize: '9px', color: '#e8a8b8', letterSpacing: '0.5px', marginTop: '3px', opacity: 0.85 }}>v2.4</div>
-            </div>
+            <div style={{ fontSize: '26px', color: '#f5e6e0', letterSpacing: '5px', fontWeight: '600', lineHeight: 1 }}>ARIA</div>
           </div>
           {/* Full name */}
-          <div style={{ fontSize: '10px', color: '#888', lineHeight: '1.5', letterSpacing: '0.3px' }}>
+          <div style={{ fontSize: '12px', color: '#999', lineHeight: '1.6', letterSpacing: '0.3px' }}>
             Artificial Research<br/>Intelligent Agent
           </div>
         </div>
