@@ -54,7 +54,18 @@ export default async function handler(req, res) {
     // ── PATH E: Plain text from homepage (static sites) ─────────────
     const html = await fetchHTML(url);
     if (html) {
-      const plain = extractPlainText(html);
+      let plain = extractPlainText(html);
+
+      // If we got few results and it looks like a Wix site, try the all-products category page
+      if (plain.length < 15 && html.includes('wixstatic.com')) {
+        const allProductsUrl = `${base}/category/all-products`;
+        const allHtml = await fetchHTML(allProductsUrl);
+        if (allHtml) {
+          const allPlain = extractPlainText(allHtml);
+          if (allPlain.length > plain.length) plain = allPlain;
+        }
+      }
+
       if (plain.length > 0) {
         return res.status(200).json({
           success: true, url,
@@ -337,7 +348,9 @@ function extractPlainText(html) {
   const exactNoise = new Set(['sale', 'price', 'new', 'new arrival', 'recommended', 'products',
     'search', 'home', 'more', 'spray', 'shop', 'skincare', 'skin care', 'company',
     'in stock', 'peptide', 'warehouse', 'warehouse.ca', 'peptide warehouse',
-    'contact us', 'more', 'bacteriostatic water']);
+    'contact us', 'more', 'bacteriostatic water', 'load more', 'browse by',
+    'filter by', 'product type', 'all products', 'shop all', 'bottom of page',
+    'top of page', 'my account', 'create account', 'my order']);
 
   // Lines that are raw price strings — skip as product names e.g. "C$54.99"
   const isPriceLine = (s) => /^[A-Za-z]{0,3}\$[\d,]+(?:\.\d{2})?$/.test(s);
@@ -392,5 +405,5 @@ function extractPlainText(html) {
     }
     if (price) results.push([line, dosage, price].filter(Boolean).join(' — '));
   }
-  return [...new Set(results)].slice(0, 30);
+  return [...new Set(results)].slice(0, 60);
 }
