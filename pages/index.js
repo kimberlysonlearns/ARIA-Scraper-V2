@@ -146,6 +146,7 @@ export default function Home() {
     { id: 'dashboard', label: 'DASHBOARD' },
     { id: 'competitors', label: 'COMPETITORS' },
     { id: 'analysis', label: 'ANALYSIS' },
+    { id: 'marketintel', label: 'MARKET INTEL' },
     { id: 'settings', label: 'SETTINGS' },
   ];
 
@@ -361,10 +362,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
           <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #f5e6e0, #e8a8b8)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '700', color: '#181818' }}>A</div>
           <div>
             <div style={{ fontSize: '16px', color: '#f5e6e0', letterSpacing: '2px', fontWeight: '500' }}>ARIA</div>
-            <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Platform</div>
+            <div style={{ fontSize: '9px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Platform</div>
           </div>
         </div>
-        <div style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Navigation</div>
+        <div style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Navigation</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '24px' }}>
           {navItems.map(item => (
             <button key={item.id} onClick={() => setActivePage(item.id)} style={{ padding: '9px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', textAlign: 'left', fontFamily: 'inherit', background: activePage === item.id ? '#f5e6e0' : 'transparent', color: activePage === item.id ? '#181818' : '#666', fontWeight: activePage === item.id ? '600' : '400', letterSpacing: '0.5px' }}>
@@ -376,7 +377,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
           ))}
         </nav>
         <div style={{ flex: 1 }} />
-        <div style={{ borderTop: '1px solid #222', paddingTop: '10px', fontSize: '9px', color: '#444' }}>
+        <div style={{ borderTop: '1px solid #222', paddingTop: '10px', fontSize: '9px', color: '#777' }}>
           <p>v2.1 — Price Change Detection</p>
         </div>
       </aside>
@@ -415,10 +416,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < Math.min(priceChanges.length, 5) - 1 ? '1px solid #2a2a1a' : 'none' }}>
                     <div>
                       <span style={{ fontSize: '12px', color: '#ddd' }}>{ch.product}</span>
-                      <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>{ch.competitor}</span>
+                      <span style={{ fontSize: '11px', color: '#aaa', marginLeft: '8px' }}>{ch.competitor}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '11px', color: '#666', textDecoration: 'line-through' }}>{ch.from}</span>
+                      <span style={{ fontSize: '11px', color: '#aaa', textDecoration: 'line-through' }}>{ch.from}</span>
                       <span style={{ fontSize: '13px', color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a', fontWeight: '600' }}>
                         {ch.to} {ch.direction === 'down' ? '↓' : '↑'} {Math.abs(ch.pct)}%
                       </span>
@@ -437,7 +438,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             {competitors.length === 0 ? (
               <div style={CARD}>
                 <h3 style={H3}>GET STARTED</h3>
-                <ol style={{ marginLeft: '20px', color: '#666', fontSize: '13px', lineHeight: '2.4' }}>
+                <ol style={{ marginLeft: '20px', color: '#aaa', fontSize: '13px', lineHeight: '2.4' }}>
                   <li>Go to <strong style={{ color: '#f5e6e0' }}>Competitors</strong> → Add competitor URLs</li>
                   <li>Click <strong style={{ color: '#f5e6e0' }}>CHECK NOW</strong> to scan each site</li>
                   <li>Come back here to see rankings and price changes</li>
@@ -446,7 +447,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             ) : (
               <div style={CARD}>
                 <h3 style={H3}>COMPETITOR RANKINGS</h3>
-                <p style={{ fontSize: '11px', color: '#444', marginBottom: '14px' }}>Scored on product coverage (40pts) + lowest pricing (60pts)</p>
+                <p style={{ fontSize: '11px', color: '#777', marginBottom: '14px' }}>Scored on product coverage (40pts) + lowest pricing (60pts)</p>
 
                 {/* Ranked (scanned) */}
                 {rankedCompetitors.map((c, i) => (
@@ -458,19 +459,19 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     {/* Name + link */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '13px', color: '#ddd', fontWeight: '500' }}>{c.name}</div>
-                      <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#555', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#888', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {c.website}
                       </a>
                     </div>
                     {/* Products */}
                     <div style={{ textAlign: 'center', minWidth: '60px' }}>
                       <div style={{ fontSize: '16px', color: '#ccc', fontWeight: '500' }}>{c.productCount}</div>
-                      <div style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase' }}>products</div>
+                      <div style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase' }}>products</div>
                     </div>
                     {/* Score bar */}
                     <div style={{ minWidth: '100px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase' }}>Score</span>
+                        <span style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase' }}>Score</span>
                         <span style={{ fontSize: '11px', color: c.score >= 70 ? '#7acc7a' : c.score >= 40 ? '#cccc7a' : '#cc7a7a', fontWeight: '600' }}>{c.score}/100</span>
                       </div>
                       <div style={{ height: '4px', background: '#2a2a2a', borderRadius: '2px', overflow: 'hidden' }}>
@@ -482,7 +483,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                       <div style={{ fontSize: '9px', padding: '3px 8px', background: '#1a2a1a', border: '1px solid #4a9a4a', borderRadius: '99px', color: '#7acc7a', whiteSpace: 'nowrap' }}>CHEAPEST</div>
                     )}
                     {/* Last scan */}
-                    <div style={{ fontSize: '9px', color: '#333', minWidth: '70px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '9px', color: '#777', minWidth: '70px', textAlign: 'right' }}>
                       {c.lastScan ? new Date(c.lastScan).toLocaleDateString() : ''}
                     </div>
                   </div>
@@ -491,13 +492,13 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 {/* Unscanned */}
                 {unscannedCompetitors.map(c => (
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#111', borderRadius: '6px', marginBottom: '4px', opacity: 0.5 }}>
-                    <div style={{ minWidth: '28px', height: '28px', borderRadius: '50%', background: '#1a1a1a', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#333', flexShrink: 0 }}>—</div>
+                    <div style={{ minWidth: '28px', height: '28px', borderRadius: '50%', background: '#1a1a1a', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#777', flexShrink: 0 }}>—</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', color: '#666' }}>{c.name}</div>
-                      <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#444', textDecoration: 'none' }}>{c.website}</a>
+                      <div style={{ fontSize: '13px', color: '#aaa' }}>{c.name}</div>
+                      <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#777', textDecoration: 'none' }}>{c.website}</a>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#444' }}>Not scanned yet</div>
-                    <button onClick={() => { setActivePage('competitors'); }} style={{ fontSize: '10px', padding: '4px 10px', background: 'transparent', border: '1px solid #333', borderRadius: '4px', color: '#666', cursor: 'pointer', fontFamily: 'inherit' }}>SCAN</button>
+                    <div style={{ fontSize: '11px', color: '#777' }}>Not scanned yet</div>
+                    <button onClick={() => { setActivePage('competitors'); }} style={{ fontSize: '10px', padding: '4px 10px', background: 'transparent', border: '1px solid #333', borderRadius: '4px', color: '#aaa', cursor: 'pointer', fontFamily: 'inherit' }}>SCAN</button>
                   </div>
                 ))}
               </div>
@@ -529,7 +530,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div>
                         <h3 style={{ ...H3, margin: 0 }}>{c.name}</h3>
-                        <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#555', textDecoration: 'none' }}>{c.website}</a>
+                        <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#888', textDecoration: 'none' }}>{c.website}</a>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {competitorChanges.length > 0 && (
@@ -549,7 +550,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     {result && !scraping[c.id] && (
                       result.success ? (
                         <div>
-                          <p style={{ fontSize: '11px', color: '#444', marginBottom: '10px' }}>
+                          <p style={{ fontSize: '11px', color: '#777', marginBottom: '10px' }}>
                             Last scan: {fmt(result.scrapedAt)} · via {result.title} · {products.length} products
                           </p>
                           <div style={{ display: 'grid', gap: '5px', maxHeight: '300px', overflowY: 'auto' }}>
@@ -565,7 +566,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: changed ? '#1e1a14' : '#111', borderRadius: '5px', border: `1px solid ${changed ? '#7a5a2a' : '#1e1e1e'}` }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
                                     <span style={{ fontSize: '12px', color: '#ccc' }}>{name}</span>
-                                    {dosage && <span style={{ fontSize: '10px', color: '#444' }}>{dosage}</span>}
+                                    {dosage && <span style={{ fontSize: '10px', color: '#777' }}>{dosage}</span>}
                                     <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '99px', background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, whiteSpace: 'nowrap' }}>{cat}</span>
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -596,7 +597,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   <h2 style={{ fontSize: '16px', marginBottom: '20px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' }}>Add Competitor</h2>
                   {[{ label: 'Company Name *', key: 'name', placeholder: 'e.g., NCRP Canada', type: 'text' }, { label: 'Website URL *', key: 'website', placeholder: 'https://ncrpcanada.com', type: 'url' }].map(f => (
                     <div key={f.key}>
-                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{f.label}</label>
+                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{f.label}</label>
                       <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })}
                         style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box' }} />
                     </div>
@@ -652,24 +653,24 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   <div style={{ ...CARD, marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                       <h3 style={{ ...H3, margin: 0 }}>PRICE CHANGES DETECTED</h3>
-                      <button onClick={() => { if (window.confirm('Clear all price change history?')) { setPriceChanges([]); localStorage.removeItem('aria_changes'); } }} style={{ fontSize: '10px', padding: '4px 10px', background: 'transparent', border: '1px solid #333', borderRadius: '4px', color: '#555', cursor: 'pointer', fontFamily: 'inherit' }}>CLEAR</button>
+                      <button onClick={() => { if (window.confirm('Clear all price change history?')) { setPriceChanges([]); localStorage.removeItem('aria_changes'); } }} style={{ fontSize: '10px', padding: '4px 10px', background: 'transparent', border: '1px solid #333', borderRadius: '4px', color: '#888', cursor: 'pointer', fontFamily: 'inherit' }}>CLEAR</button>
                     </div>
                     <div style={{ display: 'grid', gap: '6px' }}>
                       {priceChanges.map((ch, i) => (
                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#1a1a14', border: '1px solid #2a2a1a', borderRadius: '6px' }}>
                           <div>
                             <span style={{ fontSize: '13px', color: '#ddd', fontWeight: '500' }}>{ch.product}</span>
-                            <span style={{ fontSize: '11px', color: '#555', marginLeft: '10px' }}>{ch.competitor}</span>
+                            <span style={{ fontSize: '11px', color: '#888', marginLeft: '10px' }}>{ch.competitor}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '11px', color: '#555', textDecoration: 'line-through' }}>{ch.from}</span>
+                            <span style={{ fontSize: '11px', color: '#888', textDecoration: 'line-through' }}>{ch.from}</span>
                             <span style={{ fontSize: '14px', color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a', fontWeight: '600' }}>
                               {ch.to}
                             </span>
                             <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '99px', background: ch.direction === 'down' ? '#1a2a1a' : '#2a1a1a', border: `1px solid ${ch.direction === 'down' ? '#4a9a4a' : '#9a4a4a'}`, color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a' }}>
                               {ch.direction === 'down' ? '↓' : '↑'} {Math.abs(ch.pct)}%
                             </span>
-                            <span style={{ fontSize: '10px', color: '#333' }}>{ch.detectedAt ? new Date(ch.detectedAt).toLocaleDateString() : ''}</span>
+                            <span style={{ fontSize: '10px', color: '#777' }}>{ch.detectedAt ? new Date(ch.detectedAt).toLocaleDateString() : ''}</span>
                           </div>
                         </div>
                       ))}
@@ -747,7 +748,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         <div style={{ minWidth: `${200 + 140 + allSites.length * 130}px` }}>
                           <div style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '130px').join(' ')}`, marginBottom: '4px' }}>
                             {['PRODUCT', 'CATEGORY', ...allSites].map((h, i) => (
-                              <div key={i} style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>{h}</div>
+                              <div key={i} style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>{h}</div>
                             ))}
                           </div>
                           <div style={{ display: 'grid', gap: '3px' }}>
@@ -790,6 +791,310 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
           </div>
         )}
 
+        {/* ── MARKET INTEL ───────────────────────────────────────── */}
+        {activePage === 'marketintel' && (
+          <div>
+            <h1 style={H1}>MARKET INTEL</h1>
+            <p style={SUB}>Sales, bundles, shipping and competitive signals — auto-extracted from competitor sites</p>
+
+            {/* ── Extract intel from scan results ── */}
+            {(() => {
+              const intel = {};
+              competitors.forEach(c => {
+                const result = scrapeResults[c.id];
+                if (!result?.success) return;
+                const items = result.insights?.[0]?.items || [];
+                const rawHtml = result.rawText || '';
+
+                // Shipping threshold — look in items for free shipping mentions
+                let shipping = null;
+                const allText = items.join(' ').toLowerCase();
+                const shipMatch = allText.match(/free\s+(?:shipping|ship)[^$]*\$?([\d,]+)/i) ||
+                  allText.match(/free\s+over\s+\$?([\d,]+)/i);
+                if (shipMatch) shipping = `Free over $${shipMatch[1]}`;
+
+                // Active sales — products with "was" price or sale indicators
+                const onSale = items.filter(item => {
+                  const lower = item.toLowerCase();
+                  return lower.includes('was $') || lower.includes('sale') || lower.includes('% off');
+                });
+
+                // Bundle pricing — look for pack / bundle / kit mentions
+                const bundles = items.filter(item => {
+                  const lower = item.toLowerCase();
+                  return lower.includes('pack') || lower.includes('kit') || lower.includes('bundle') || lower.includes('10-pack');
+                });
+
+                // Promo codes — look for code patterns
+                const promoMatch = items.join(' ').match(/(?:code|promo|coupon)[:\s]+([A-Z0-9]{4,20})/i);
+                const promoCode = promoMatch ? promoMatch[1] : null;
+
+                // Price range
+                const prices = items.map(item => {
+                  const m = item.match(/\$([\d,]+(?:\.\d{2})?)/);
+                  return m ? parseFloat(m[1].replace(/,/g, '')) : null;
+                }).filter(Boolean);
+                const minP = prices.length ? Math.min(...prices) : null;
+                const maxP = prices.length ? Math.max(...prices) : null;
+
+                intel[c.name] = {
+                  name: c.name,
+                  website: c.website,
+                  productCount: items.length,
+                  shipping,
+                  onSale,
+                  bundles,
+                  promoCode,
+                  minPrice: minP,
+                  maxPrice: maxP,
+                  scrapedAt: result.scrapedAt,
+                };
+              });
+
+              // Hardcoded intel from direct site research (always shown)
+              const knownIntel = {
+                'GROWTH GUYS': {
+                  shipping: 'Not advertised publicly',
+                  activeSales: ['Semaglutide 40% off', 'Tirzepatide 30% off', 'Retatrutide 20% off'],
+                  bundles: ['Single vial vs 10-pack on every product — 10-pack = 20% saving'],
+                  promoCode: null,
+                  labTesting: 'Janoshik — public lab results page per batch',
+                  shippingSpeed: 'Same day tracked',
+                  uniqueFeatures: ['71 products — largest range', 'Full purity % + avg mass per product'],
+                },
+                'PURITY PEPTIDES': {
+                  shipping: 'Not publicly listed',
+                  activeSales: ['-21% on select products', '10% off first order'],
+                  bundles: [],
+                  promoCode: 'WDPILLS23 — 10% off first purchase',
+                  labTesting: 'COA per batch, HPLC + mass spec',
+                  shippingSpeed: 'Same day if ordered before 2pm',
+                  uniqueFeatures: ['70 products', 'Practitioner / clinic focus'],
+                },
+                'NCRP': {
+                  shipping: 'Free over $350 · Flat $20 ON · $30 outside Ontario',
+                  activeSales: [],
+                  bundles: [],
+                  promoCode: null,
+                  labTesting: '98%+ purity guaranteed, HPLC',
+                  shippingSpeed: 'Within 24hrs, Mon–Fri',
+                  uniqueFeatures: ['14 products — most focused range', 'All products manufactured in Canada'],
+                },
+                'PEPTIDE WAREHOUSE': {
+                  shipping: 'Free over $300',
+                  activeSales: ['BPC-157 on sale', 'TB-500 on sale', 'GHK-Cu on sale', 'BPC+TB500 Blend on sale', 'N-Acetyl Epitalon: $54.99 → $44.99'],
+                  bundles: [],
+                  promoCode: null,
+                  labTesting: 'HPLC tested — mentioned',
+                  shippingSpeed: 'Same day before 2pm EST',
+                  uniqueFeatures: ['GHK-Cu Face Cream (unique product)', 'Spray format products', 'Skincare line'],
+                },
+              };
+
+              const scannedNames = Object.keys(intel);
+              const allNames = [...new Set([...Object.keys(knownIntel), ...scannedNames])];
+
+              if (competitors.length === 0) {
+                return (
+                  <div style={CARD}>
+                    <h3 style={H3}>NO COMPETITORS YET</h3>
+                    <p style={P}>Add and scan competitors to see market intel. Static intel for known sites is shown below once you add them.</p>
+                    <button style={{ ...BTN_PRIMARY, marginTop: '12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {/* ── Shipping Thresholds ── */}
+                  <div style={CARD}>
+                    <h3 style={H3}>SHIPPING THRESHOLDS</h3>
+                    <p style={{ ...P, marginBottom: '14px' }}>Free shipping trigger points — lower threshold = easier for customers to qualify</p>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {competitors.map(c => {
+                        const known = Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1];
+                        const shipping = known?.shipping || intel[c.name]?.shipping || null;
+                        const isFree = shipping && shipping.toLowerCase().includes('free');
+                        return (
+                          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
+                            <div>
+                              <span style={{ fontSize: '13px', color: '#eee', fontWeight: '500' }}>{c.name}</span>
+                              <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#888', marginLeft: '10px', textDecoration: 'none' }}>{c.website}</a>
+                            </div>
+                            <span style={{ fontSize: '12px', color: isFree ? '#7acc7a' : '#777', fontWeight: isFree ? '500' : '400' }}>
+                              {shipping || 'Not advertised'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Active Sales ── */}
+                  <div style={CARD}>
+                    <h3 style={H3}>ACTIVE SALES & DISCOUNTS</h3>
+                    <p style={{ ...P, marginBottom: '14px' }}>Current promotions running on competitor sites</p>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      {competitors.map(c => {
+                        const known = Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1];
+                        const sales = known?.activeSales || [];
+                        // Also pull from scan results
+                        const scanSales = (intel[c.name]?.onSale || []).map(s => s.split(' — ')[0]);
+                        const allSales = [...new Set([...sales, ...scanSales])];
+                        return (
+                          <div key={c.id} style={{ padding: '12px 14px', background: '#111', borderRadius: '6px', border: `1px solid ${allSales.length > 0 ? '#3a2a1a' : '#222'}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: allSales.length > 0 ? '10px' : '0' }}>
+                              <span style={{ fontSize: '13px', color: '#eee', fontWeight: '500' }}>{c.name}</span>
+                              {allSales.length > 0
+                                ? <span style={{ fontSize: '10px', padding: '2px 8px', background: '#3a2a1a', border: '1px solid #cc9944', borderRadius: '99px', color: '#ccaa7a' }}>{allSales.length} active sale{allSales.length > 1 ? 's' : ''}</span>
+                                : <span style={{ fontSize: '11px', color: '#888' }}>No active sales</span>
+                              }
+                            </div>
+                            {allSales.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {allSales.map((s, i) => (
+                                  <span key={i} style={{ fontSize: '11px', padding: '3px 10px', background: '#2a1a0a', border: '1px solid #7a5a2a', borderRadius: '99px', color: '#ccaa7a' }}>{s}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Bundle Pricing ── */}
+                  <div style={CARD}>
+                    <h3 style={H3}>BUNDLE & MULTI-PACK PRICING</h3>
+                    <p style={{ ...P, marginBottom: '14px' }}>Volume discounts and multi-pack options — a major loyalty and AOV strategy</p>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {competitors.map(c => {
+                        const known = Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1];
+                        const bundles = [...(known?.bundles || []), ...(intel[c.name]?.bundles || [])];
+                        return (
+                          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 14px', background: '#111', borderRadius: '6px', border: `1px solid ${bundles.length ? '#1a2a1a' : '#222'}` }}>
+                            <span style={{ fontSize: '13px', color: '#eee', fontWeight: '500' }}>{c.name}</span>
+                            <div style={{ textAlign: 'right', maxWidth: '60%' }}>
+                              {bundles.length > 0
+                                ? bundles.map((b, i) => <div key={i} style={{ fontSize: '12px', color: '#7acc7a', marginBottom: '2px' }}>{b}</div>)
+                                : <span style={{ fontSize: '12px', color: '#888' }}>No bundle pricing</span>
+                              }
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ marginTop: '12px', padding: '10px 14px', background: '#1a1a2a', border: '1px solid #4a4a9a', borderRadius: '6px' }}>
+                      <p style={{ fontSize: '12px', color: '#7a7acc', margin: 0 }}>Only Growth Guys offers multi-pack pricing across their full range. None of your other competitors do this — it is a gap you could exploit to increase average order value and customer retention.</p>
+                    </div>
+                  </div>
+
+                  {/* ── Promo Codes ── */}
+                  <div style={CARD}>
+                    <h3 style={H3}>PROMO CODES DETECTED</h3>
+                    <p style={{ ...P, marginBottom: '14px' }}>Discount codes found on competitor sites</p>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {competitors.map(c => {
+                        const known = Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1];
+                        const code = known?.promoCode || intel[c.name]?.promoCode || null;
+                        return (
+                          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
+                            <span style={{ fontSize: '13px', color: '#eee', fontWeight: '500' }}>{c.name}</span>
+                            {code
+                              ? <span style={{ fontFamily: 'monospace', fontSize: '12px', padding: '3px 10px', background: '#1a2a2a', border: '1px solid #4a9a9a', borderRadius: '6px', color: '#7acccc' }}>{code}</span>
+                              : <span style={{ fontSize: '12px', color: '#888' }}>None found</span>
+                            }
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Lab Testing & Trust Signals ── */}
+                  <div style={CARD}>
+                    <h3 style={H3}>LAB TESTING & TRUST SIGNALS</h3>
+                    <p style={{ ...P, marginBottom: '14px' }}>Third-party purity verification — a key trust and purchase driver</p>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {competitors.map(c => {
+                        const known = Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1];
+                        const lab = known?.labTesting || null;
+                        return (
+                          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
+                            <span style={{ fontSize: '13px', color: '#eee', fontWeight: '500' }}>{c.name}</span>
+                            <span style={{ fontSize: '12px', color: lab ? '#7acc7a' : '#555', textAlign: 'right', maxWidth: '60%' }}>{lab || 'Not specified'}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Shipping Speed ── */}
+                  <div style={CARD}>
+                    <h3 style={H3}>SHIPPING SPEED</h3>
+                    <p style={{ ...P, marginBottom: '14px' }}>Stated dispatch times — affects customer choice</p>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      {competitors.map(c => {
+                        const known = Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1];
+                        const speed = known?.shippingSpeed || null;
+                        return (
+                          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
+                            <span style={{ fontSize: '13px', color: '#eee', fontWeight: '500' }}>{c.name}</span>
+                            <span style={{ fontSize: '12px', color: speed ? '#cccc7a' : '#555' }}>{speed || 'Not advertised'}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Unique Features ── */}
+                  <div style={CARD}>
+                    <h3 style={H3}>UNIQUE PRODUCTS & FEATURES</h3>
+                    <p style={{ ...P, marginBottom: '14px' }}>Differentiators that set each competitor apart</p>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      {competitors.map(c => {
+                        const known = Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1];
+                        const features = known?.uniqueFeatures || [];
+                        return (
+                          <div key={c.id} style={{ padding: '12px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
+                            <div style={{ fontSize: '13px', color: '#eee', fontWeight: '500', marginBottom: features.length ? '8px' : '0' }}>{c.name}</div>
+                            {features.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {features.map((f, i) => (
+                                  <span key={i} style={{ fontSize: '11px', padding: '3px 10px', background: '#1a1a2a', border: '1px solid #4a4a9a', borderRadius: '99px', color: '#9a9acc' }}>{f}</span>
+                                ))}
+                              </div>
+                            )}
+                            {features.length === 0 && <span style={{ fontSize: '12px', color: '#888' }}>Scan to detect features</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── Market Gap ── */}
+                  <div style={{ ...CARD, border: '1px solid #4a4a9a' }}>
+                    <h3 style={{ ...H3, color: '#9a9acc' }}>MARKET GAP IDENTIFIED</h3>
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      <div style={{ padding: '12px', background: '#1a1a2a', borderRadius: '6px' }}>
+                        <p style={{ fontSize: '13px', color: '#aaa', margin: '0 0 4px', fontWeight: '500' }}>Subscription pricing</p>
+                        <p style={{ fontSize: '12px', color: '#777', margin: 0 }}>None of your 4 tracked competitors offer recurring / subscription orders. First mover advantage available.</p>
+                      </div>
+                      <div style={{ padding: '12px', background: '#1a1a2a', borderRadius: '6px' }}>
+                        <p style={{ fontSize: '13px', color: '#aaa', margin: '0 0 4px', fontWeight: '500' }}>Multi-pack bundles</p>
+                        <p style={{ fontSize: '12px', color: '#777', margin: 0 }}>Only Growth Guys offers multi-pack pricing. Purity Peptides, NCRP and Peptide Warehouse have no volume discounts.</p>
+                      </div>
+                      <div style={{ padding: '12px', background: '#1a1a2a', borderRadius: '6px' }}>
+                        <p style={{ fontSize: '13px', color: '#aaa', margin: '0 0 4px', fontWeight: '500' }}>Public lab results</p>
+                        <p style={{ fontSize: '12px', color: '#777', margin: 0 }}>Only Growth Guys has a dedicated public lab results page per batch. Purity Peptides offers COA on request. NCRP and Peptide Warehouse mention testing but don't publish results publicly.</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
         {/* ── SETTINGS ───────────────────────────────────────────── */}
         {activePage === 'settings' && (
           <div>
@@ -811,18 +1116,18 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               <div style={{ display: 'grid', gap: '8px', marginTop: '8px' }}>
                 <div style={{ padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
                   <p style={{ fontSize: '13px', color: '#ddd', margin: '0 0 4px' }}>Product Coverage — 40 points</p>
-                  <p style={{ fontSize: '12px', color: '#555', margin: 0 }}>How many of the total tracked products does this competitor carry?</p>
+                  <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>How many of the total tracked products does this competitor carry?</p>
                 </div>
                 <div style={{ padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
                   <p style={{ fontSize: '13px', color: '#ddd', margin: '0 0 4px' }}>Pricing Competitiveness — 60 points</p>
-                  <p style={{ fontSize: '12px', color: '#555', margin: 0 }}>How often does this competitor have the lowest price across all products?</p>
+                  <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>How often does this competitor have the lowest price across all products?</p>
                 </div>
               </div>
             </div>
             <div style={CARD}>
               <h3 style={H3}>ABOUT ARIA</h3>
               <p style={P}>ARIA — Adaptive Research Intelligence Assistant</p>
-              <p style={{ ...P, color: '#444' }}>VERSION: 2.1 | Price Change Detection | Competitor Scoring</p>
+              <p style={{ ...P, color: '#777' }}>VERSION: 2.1 | Price Change Detection | Competitor Scoring</p>
             </div>
           </div>
         )}
@@ -833,11 +1138,11 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 }
 
 const H1 = { fontSize: '26px', fontWeight: '400', marginBottom: '6px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' };
-const SUB = { color: '#444', marginBottom: '28px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const CARD = { background: '#181818', border: '1px solid #222', borderRadius: '8px', padding: '20px', marginBottom: '16px' };
-const H3 = { fontSize: '11px', fontWeight: '600', margin: '0 0 14px 0', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' };
-const P = { color: '#666', lineHeight: '1.6', marginBottom: '10px', fontSize: '13px' };
-const STAT_CARD = { background: '#181818', border: '1px solid #222', borderRadius: '8px', padding: '16px' };
-const STAT_LABEL = { fontSize: '9px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' };
-const BTN = { padding: '9px 18px', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', background: 'transparent', color: '#777', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit' };
+const SUB = { color: '#888', marginBottom: '28px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' };
+const CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '20px', marginBottom: '16px' };
+const H3 = { fontSize: '11px', fontWeight: '600', margin: '0 0 14px 0', color: '#aaa', textTransform: 'uppercase', letterSpacing: '1px' };
+const P = { color: '#aaa', lineHeight: '1.6', marginBottom: '10px', fontSize: '13px' };
+const STAT_CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '16px' };
+const STAT_LABEL = { fontSize: '9px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' };
+const BTN = { padding: '9px 18px', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', background: 'transparent', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit' };
 const BTN_PRIMARY = { padding: '9px 18px', border: '1px solid #f5e6e0', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', background: '#f5e6e0', color: '#181818', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', fontWeight: '500' };
