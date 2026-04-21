@@ -412,172 +412,277 @@ return (
 }
 function PricingTab() {
   const FF = "'Century Gothic', 'Trebuchet MS', sans-serif";
-  const [activeView, setActiveView] = useState('suppliers');
+  const [activeView, setActiveView] = useState('products');
+  const [search, setSearch] = useState('');
+  const [activeCat, setActiveCat] = useState('ALL');
   const [supSearch, setSupSearch] = useState('');
-  const [supRegion, setSupRegion] = useState('ALL');
   const [supType, setSupType] = useState('ALL');
 
-  const SUPPLIERS = [
-    // ── TIER 2: CHINESE BULK API SUPPLIERS ──────────────────────────────
-    { name:'Shenzhen Jipeptide Biotechnology', region:'CN', city:'Shenzhen, Guangdong', type:'Manufacturer', products:['Custom peptides','GHK-Cu','NAD+','MT2','Selank','Semax','Bac water'], moq:'1–10g', contact:'Made-in-China', url:'https://mm.made-in-china.com/hot-china-products/Wholesale_Custom_Peptide.html', notes:'Custom synthesis + stock items. WeChat preferred.' },
-    { name:'Wuhan Newtop Biotech', region:'CN', city:'Wuhan, Hubei', type:'Manufacturer', products:['GHK-Cu','Melanotan II','NAD+','Selank','Klow','Glow'], moq:'1g+', contact:'Made-in-China', url:'https://newtop-biotech.en.made-in-china.com', notes:'Diamond member, audited. Strong on cosmetic peptides.' },
-    { name:'Changsha Duole Technology', region:'CN', city:'Changsha, Hunan', type:'Manufacturer', products:['Tirzepatide','Semaglutide','Retatrutide','Cagrilintide','NAD+','Copper peptide','Melanotan II'], moq:'Inquiry', contact:'ECHEMI', url:'https://www.echemi.com/supplier/pd2407221001-semaglutide-tirzepatide.html', notes:'Est. 2020, synthetic biology platform. Strong GLP-1 range.' },
-    { name:'Qingdao Ania Biotechnology', region:'CN', city:'Qingdao, Shandong', type:'Manufacturer', products:['Retatrutide','MT2','API raw powder','Pharma intermediates'], moq:'Inquiry', contact:'Made-in-China', url:'https://mm.made-in-china.com/hot-china-products/Wholesale_Custom_Peptide.html', notes:'Full API range including newer GLP-1 compounds.' },
-    { name:'Dingwang Technology (Wuhan)', region:'CN', city:'Wuhan, Hubei', type:'Manufacturer', products:['Pharma intermediates','Peptides','Nutritional supplements','Plant extracts'], moq:'Inquiry', contact:'ECHEMI', url:'https://www.echemi.com/supplier/pd2208011001-peptide.html', notes:'Traffic hub location, broad pharmaceutical range.' },
-    { name:'Xingtai Jiachuang Technology', region:'CN', city:'Xingtai, Hebei', type:'Trader', products:['Retatrutide','Tirzepatide','Semaglutide','BPC-157','TB-500','NAD+','Selank','Semax'], moq:'10 vials', contact:'Global Sources', url:'https://www.globalsources.com/manufacturers/peptide.html', notes:'Full hot peptide range, fast delivery focus.' },
-    { name:'Huaian Hanyou Peptide', region:'CN', city:'Huaian, Jiangsu', type:'Manufacturer', products:['BPC-157','TB-500','BPC+TB blend'], moq:'10 vials', contact:'Global Sources', url:'https://www.globalsources.com/china-suppliers/bpc-157-powder.htm', notes:'40 employees, specialises in BPC/TB recovery range.' },
-    { name:'Pengting Peptide', region:'CN', city:'China', type:'Manufacturer', products:['Tirzepatide','Semaglutide','Retatrutide','GHK-Cu','Custom peptides'], moq:'50g trial', contact:'Direct website', url:'https://pengtingpeptide.com/', notes:'GMP + ISO certified. Targets pharma/biotech buyers. 15–30 day delivery.' },
-    { name:'Zhengzhou Qinghuayuan Bioengineering', region:'CN', city:'Zhengzhou, Henan', type:'Manufacturer', products:['BPC-157','TB-500','Full peptide range'], moq:'Inquiry', contact:'Alibaba/MIC', url:'https://www.alibaba.com/peptides-bpc-157-suppliers.html', notes:'$740k+ annual revenue, large scale, 4300m² facility.' },
-    { name:'Nanjing Top Speed International', region:'CN', city:'Nanjing, Jiangsu', type:'Trader', products:['Cagrilintide','NAD+','Semax','Selank','LL-37','ARA-290','VIP','MT2','SS-31'], moq:'Inquiry', contact:'Made-in-China', url:'https://njtopsi.en.made-in-china.com', notes:'Gold member, audited. Broad rare peptide stock.' },
-    { name:'Peptide Co. Ltd (Shanghai)', region:'CN', city:'Jinshan, Shanghai', type:'Manufacturer', products:['Semaglutide','Tirzepatide','Retatrutide'], moq:'Inquiry', contact:'Made-in-China', url:'https://www.made-in-china.com/showroom/peptidessupplier/', notes:'100M+ annual output. GLP-1 specialist. 10+ production lines.' },
-    { name:'Changsha Xjun Technology', region:'CN', city:'Changsha, Hunan', type:'Manufacturer', products:['Tirzepatide','Semaglutide','Retatrutide','Cagrilintide','Selank','Semax'], moq:'Inquiry', contact:'ECHEMI', url:'https://www.echemi.com/supplier/pd2208011001-peptide.html', notes:'Est. 2023, synthetic biology platform, advanced QC.' },
-    // ── B2B PLATFORMS (to find more suppliers) ───────────────────────────
-    { name:'Alibaba — Peptide Suppliers', region:'PLATFORM', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'RFQ system', url:'https://www.alibaba.com/peptide-suppliers.html', notes:'Largest B2B marketplace. 100+ peptide suppliers. Use RFQ to get quotes.' },
-    { name:'Made-in-China — Peptides', region:'PLATFORM', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'Inquiry form', url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html', notes:'More manufacturers vs traders. Good for audited suppliers.' },
-    { name:'Global Sources — Peptides', region:'PLATFORM', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'RFQ system', url:'https://www.globalsources.com/manufacturers/peptide.html', notes:'B2B platform with verified supplier ratings.' },
-    { name:'ECHEMI — Peptides', region:'PLATFORM', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'RFQ system', url:'https://www.echemi.com/supplier/pd2208011001-peptide.html', notes:'Chemical-focused. Good for API raw powder inquiries.' },
+  // ── PRODUCT PRICING DATA ─────────────────────────────────────────────
+  // bulk_low / bulk_high = estimated per-mg cost from CN Tier 2 supplier (USD)
+  // ruo_low / ruo_high   = typical RUO retail sell price per mg (USD)
+  // margin               = estimated gross margin % at midpoint
+  // moq_g                = typical minimum order quantity in grams from CN supplier
+  // notes                = sourcing notes
+  const PRODUCTS = [
+    // Weight Loss
+    { name:'Semaglutide',     cat:'Weight Loss', bulk_low:0.003, bulk_high:0.008, ruo_low:0.012, ruo_high:0.025, moq_g:1,   notes:'GLP-1. Patent pressure in US. CN supply abundant.' },
+    { name:'Tirzepatide',     cat:'Weight Loss', bulk_low:0.004, bulk_high:0.010, ruo_low:0.015, ruo_high:0.030, moq_g:1,   notes:'Dual GLP-1/GIP. Eli Lilly pressure on US vendors.' },
+    { name:'Retatrutide',     cat:'Weight Loss', bulk_low:0.006, bulk_high:0.014, ruo_low:0.014, ruo_high:0.028, moq_g:1,   notes:'Triple agonist. Newer compound, smaller CN supply.' },
+    { name:'Cagrilintide',    cat:'Weight Loss', bulk_low:0.005, bulk_high:0.012, ruo_low:0.012, ruo_high:0.020, moq_g:1,   notes:'Amylin analogue. Often sold as CagriSema blend.' },
+    { name:'AOD-9604',        cat:'Weight Loss', bulk_low:0.003, bulk_high:0.007, ruo_low:0.008, ruo_high:0.015, moq_g:5,   notes:'HGH fragment. Commoditised, lots of CN supply.' },
+    // Muscle Growth
+    { name:'BPC-157',         cat:'Recovery',    bulk_low:0.001, bulk_high:0.003, ruo_low:0.005, ruo_high:0.012, moq_g:5,   notes:'Most commoditised peptide. High CN supply, low cost.' },
+    { name:'TB-500',          cat:'Recovery',    bulk_low:0.002, bulk_high:0.005, ruo_low:0.006, ruo_high:0.014, moq_g:5,   notes:'Thymosin B4. Category 2 FDA. Wide CN supply.' },
+    { name:'BPC+TB Blend',    cat:'Recovery',    bulk_low:0.0015,bulk_high:0.004, ruo_low:0.005, ruo_high:0.011, moq_g:5,   notes:'Blended by RUO site. Cost = weighted avg of components.' },
+    { name:'GHK-Cu',          cat:'Recovery',    bulk_low:0.001, bulk_high:0.003, ruo_low:0.005, ruo_high:0.015, moq_g:10,  notes:'Copper peptide. Also cosmetic market. Very cheap at scale.' },
+    { name:'Ipamorelin',      cat:'Muscle',      bulk_low:0.001, bulk_high:0.003, ruo_low:0.006, ruo_high:0.013, moq_g:5,   notes:'GHRP. Commoditised. Usually sold with CJC-1295.' },
+    { name:'CJC-1295',        cat:'Muscle',      bulk_low:0.002, bulk_high:0.005, ruo_low:0.008, ruo_high:0.016, moq_g:5,   notes:'GHRH analogue. DAC and no-DAC versions.' },
+    { name:'CJC+Ipa Blend',   cat:'Muscle',      bulk_low:0.0015,bulk_high:0.004, ruo_low:0.007, ruo_high:0.014, moq_g:5,   notes:'Most popular GH stack. Blend = cost of both components.' },
+    { name:'MK-677',          cat:'Muscle',      bulk_low:0.0005,bulk_high:0.002, ruo_low:0.002, ruo_high:0.006, moq_g:10,  notes:'Oral secretagogue. Not a peptide — small molecule. Very cheap.' },
+    { name:'Tesamorelin',     cat:'Muscle',      bulk_low:0.005, bulk_high:0.012, ruo_low:0.015, ruo_high:0.035, moq_g:1,   notes:'FDA-approved API. More expensive to source, premium pricing.' },
+    { name:'IGF-1 LR3',       cat:'Muscle',      bulk_low:0.015, bulk_high:0.030, ruo_low:0.050, ruo_high:0.100, moq_g:0.1, notes:'Complex synthesis. Low MOQ available but expensive per mg.' },
+    { name:'HGH',             cat:'Muscle',      bulk_low:0.010, bulk_high:0.025, ruo_low:0.030, ruo_high:0.080, moq_g:0.5, notes:'Full HGH molecule. Complex. Requires cold chain shipping.' },
+    // Anti-Aging
+    { name:'Epitalon',        cat:'Anti-Aging',  bulk_low:0.001, bulk_high:0.003, ruo_low:0.003, ruo_high:0.008, moq_g:5,   notes:'Tetrapeptide. Very cheap to synthesise. High margin possible.' },
+    { name:'NAD+',            cat:'Anti-Aging',  bulk_low:0.00005,bulk_high:0.0002,ruo_low:0.0002,ruo_high:0.0005,moq_g:100,'notes':'Not a peptide — small molecule. Priced per mg but sold in 500mg+ vials.' },
+    { name:'GHK-Cu',          cat:'Anti-Aging',  bulk_low:0.001, bulk_high:0.003, ruo_low:0.005, ruo_high:0.015, moq_g:10,  notes:'Dual listing — cosmetic + anti-aging market overlap.' },
+    { name:'MOTS-c',          cat:'Anti-Aging',  bulk_low:0.003, bulk_high:0.008, ruo_low:0.008, ruo_high:0.018, moq_g:1,   notes:'Mitochondria-derived peptide. Growing demand.' },
+    { name:'SS-31',           cat:'Anti-Aging',  bulk_low:0.004, bulk_high:0.010, ruo_low:0.010, ruo_high:0.020, moq_g:1,   notes:'Cardiolipin-targeting. Research-grade compound.' },
+    // Cognitive
+    { name:'Semax',           cat:'Cognitive',   bulk_low:0.001, bulk_high:0.003, ruo_low:0.002, ruo_high:0.006, moq_g:5,   notes:'Russian-developed. Cheap to source, sold in large (25mg) vials.' },
+    { name:'Selank',          cat:'Cognitive',   bulk_low:0.001, bulk_high:0.003, ruo_low:0.003, ruo_high:0.007, moq_g:5,   notes:'Anxiolytic peptide. Similar cost/margin profile to Semax.' },
+    { name:'5-Amino-1MQ',     cat:'Cognitive',   bulk_low:0.0002,bulk_high:0.001, ruo_low:0.001, ruo_high:0.003, moq_g:10,  notes:'NNMT inhibitor small molecule. Oral. Very low bulk cost.' },
+    // Hormonal
+    { name:'PT-141',          cat:'Hormonal',    bulk_low:0.001, bulk_high:0.003, ruo_low:0.005, ruo_high:0.010, moq_g:5,   notes:'FDA-approved Vyleesi. Strong demand. Good margin.' },
+    { name:'Melanotan-2',     cat:'Hormonal',    bulk_low:0.0005,bulk_high:0.002, ruo_low:0.003, ruo_high:0.007, moq_g:10,  notes:'Most commoditised tanning peptide. Extremely cheap.' },
+    { name:'Thymosin Alpha-1',cat:'Hormonal',    bulk_low:0.003, bulk_high:0.008, ruo_low:0.008, ruo_high:0.018, moq_g:1,   notes:'Immune modulator. FDA-approved in some countries.' },
+    { name:'KPV',             cat:'Hormonal',    bulk_low:0.001, bulk_high:0.003, ruo_low:0.003, ruo_high:0.007, moq_g:5,   notes:'Tripeptide. Very short chain = cheap to synthesise.' },
   ];
 
-  const REGIONS = ['ALL','CN','PLATFORM'];
+  const SUPPLIERS = [
+    { name:'Shenzhen Jipeptide Biotechnology', city:'Shenzhen, Guangdong', type:'Manufacturer', products:['Custom peptides','GHK-Cu','NAD+','MT2','Selank','Semax','Bac water'], moq:'1–10g', contact:'Made-in-China', url:'https://mm.made-in-china.com/hot-china-products/Wholesale_Custom_Peptide.html', notes:'Custom synthesis + stock items. WeChat preferred.' },
+    { name:'Wuhan Newtop Biotech', city:'Wuhan, Hubei', type:'Manufacturer', products:['GHK-Cu','Melanotan II','NAD+','Selank','Klow','Glow'], moq:'1g+', contact:'Made-in-China', url:'https://newtop-biotech.en.made-in-china.com', notes:'Diamond member, audited. Strong on cosmetic peptides.' },
+    { name:'Changsha Duole Technology', city:'Changsha, Hunan', type:'Manufacturer', products:['Tirzepatide','Semaglutide','Retatrutide','Cagrilintide','NAD+','Copper peptide','Melanotan II'], moq:'Inquiry', contact:'ECHEMI', url:'https://www.echemi.com/supplier/pd2407221001-semaglutide-tirzepatide.html', notes:'Est. 2020. Strong GLP-1 range, synthetic biology platform.' },
+    { name:'Qingdao Ania Biotechnology', city:'Qingdao, Shandong', type:'Manufacturer', products:['Retatrutide','MT2','API raw powder','Pharma intermediates'], moq:'Inquiry', contact:'Made-in-China', url:'https://mm.made-in-china.com/hot-china-products/Wholesale_Custom_Peptide.html', notes:'Full API range including newer GLP-1 compounds.' },
+    { name:'Dingwang Technology (Wuhan)', city:'Wuhan, Hubei', type:'Manufacturer', products:['Pharma intermediates','Peptides','Nutritional supplements','Plant extracts'], moq:'Inquiry', contact:'ECHEMI', url:'https://www.echemi.com/supplier/pd2208011001-peptide.html', notes:'Traffic hub location, broad pharmaceutical range.' },
+    { name:'Xingtai Jiachuang Technology', city:'Xingtai, Hebei', type:'Trader', products:['Retatrutide','Tirzepatide','Semaglutide','BPC-157','TB-500','NAD+','Selank','Semax'], moq:'10 vials', contact:'Global Sources', url:'https://www.globalsources.com/manufacturers/peptide.html', notes:'Full hot peptide range, fast delivery focus.' },
+    { name:'Huaian Hanyou Peptide', city:'Huaian, Jiangsu', type:'Manufacturer', products:['BPC-157','TB-500','BPC+TB blend'], moq:'10 vials', contact:'Global Sources', url:'https://www.globalsources.com/china-suppliers/bpc-157-powder.htm', notes:'40 employees, specialises in BPC/TB recovery range.' },
+    { name:'Pengting Peptide', city:'China', type:'Manufacturer', products:['Tirzepatide','Semaglutide','Retatrutide','GHK-Cu','Custom peptides'], moq:'50g trial', contact:'Direct website', url:'https://pengtingpeptide.com/', notes:'GMP + ISO certified. Targets pharma/biotech buyers.' },
+    { name:'Zhengzhou Qinghuayuan', city:'Zhengzhou, Henan', type:'Manufacturer', products:['BPC-157','TB-500','Full peptide range'], moq:'Inquiry', contact:'Alibaba/MIC', url:'https://www.alibaba.com/peptides-bpc-157-suppliers.html', notes:'$740k+ revenue, large scale, 4300m² facility.' },
+    { name:'Nanjing Top Speed International', city:'Nanjing, Jiangsu', type:'Trader', products:['Cagrilintide','NAD+','Semax','Selank','LL-37','ARA-290','VIP','MT2','SS-31'], moq:'Inquiry', contact:'Made-in-China', url:'https://njtopsi.en.made-in-china.com', notes:'Gold member, audited. Broad rare peptide stock.' },
+    { name:'Peptide Co. Ltd (Shanghai)', city:'Jinshan, Shanghai', type:'Manufacturer', products:['Semaglutide','Tirzepatide','Retatrutide'], moq:'Inquiry', contact:'Made-in-China', url:'https://www.made-in-china.com/showroom/peptidessupplier/', notes:'100M+ annual output. GLP-1 specialist. 10+ production lines.' },
+    { name:'Alibaba — Peptides', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'RFQ system', url:'https://www.alibaba.com/peptide-suppliers.html', notes:'Largest B2B marketplace. 100+ peptide suppliers.' },
+    { name:'Made-in-China — Peptides', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'Inquiry form', url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html', notes:'More manufacturers vs traders. Good for audited suppliers.' },
+    { name:'Global Sources — Peptides', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'RFQ system', url:'https://www.globalsources.com/manufacturers/peptide.html', notes:'B2B platform with verified supplier ratings.' },
+    { name:'ECHEMI — Peptides', city:'Global', type:'Platform', products:['All peptides'], moq:'Varies', contact:'RFQ system', url:'https://www.echemi.com/supplier/pd2208011001-peptide.html', notes:'Chemical-focused. Good for API raw powder inquiries.' },
+  ];
+
+  const CATS = ['ALL','Weight Loss','Recovery','Muscle','Anti-Aging','Cognitive','Hormonal'];
   const TYPES = ['ALL','Manufacturer','Trader','Platform'];
 
-  const filtered = SUPPLIERS.filter(s => {
-    const ms = !supSearch || s.name.toLowerCase().includes(supSearch.toLowerCase()) || s.products.some(p => p.toLowerCase().includes(supSearch.toLowerCase()));
-    const mr = supRegion === 'ALL' || s.region === supRegion;
-    const mt = supType === 'ALL' || s.type === supType;
-    return ms && mr && mt;
+  const filteredProducts = PRODUCTS.filter(p => {
+    const ms = !search || p.name.toLowerCase().includes(search.toLowerCase());
+    const mc = activeCat === 'ALL' || p.cat === activeCat;
+    return ms && mc;
   });
 
+  const filteredSuppliers = SUPPLIERS.filter(s => {
+    const ms = !supSearch || s.name.toLowerCase().includes(supSearch.toLowerCase()) || s.products.some(p => p.toLowerCase().includes(supSearch.toLowerCase()));
+    const mt = supType === 'ALL' || s.type === supType;
+    return ms && mt;
+  });
+
+  const midMargin = (p) => {
+    const bulkMid = (p.bulk_low + p.bulk_high) / 2;
+    const ruoMid  = (p.ruo_low  + p.ruo_high)  / 2;
+    return ruoMid > 0 ? Math.round(((ruoMid - bulkMid) / ruoMid) * 100) : 0;
+  };
+
   const TH = { padding:'9px 12px', fontSize:'10px', fontWeight:'600', color:'#666', textTransform:'uppercase', letterSpacing:'1px', background:'#1a1a1a', borderBottom:'1px solid #252525', textAlign:'left', whiteSpace:'nowrap', fontFamily:FF };
-  const TD = { padding:'10px 12px', fontSize:'13px', borderBottom:'1px solid #1e1e1e', fontFamily:FF, verticalAlign:'top' };
+  const TD = { padding:'9px 12px', fontSize:'13px', borderBottom:'1px solid #1e1e1e', fontFamily:FF, verticalAlign:'middle' };
+
+  const catColor = (cat) => CATEGORY_COLORS[cat] || CATEGORY_COLORS['Other'] || { bg:'#141414', border:'#888', text:'#888' };
 
   const typePill = (type) => {
-    const colors = {
-      Manufacturer: { bg:'#0a1e14', border:'#b0ffd8', text:'#b0ffd8' },
-      Trader:       { bg:'#281e0a', border:'#ffe0a0', text:'#ffe0a0' },
-      Platform:     { bg:'#0a1428', border:'#b0d4ff', text:'#b0d4ff' },
-    };
+    const colors = { Manufacturer:{ bg:'#0a1e14', border:'#b0ffd8', text:'#b0ffd8' }, Trader:{ bg:'#281e0a', border:'#ffe0a0', text:'#ffe0a0' }, Platform:{ bg:'#0a1428', border:'#b0d4ff', text:'#b0d4ff' } };
     const c = colors[type] || colors.Trader;
     return <span style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:c.bg, border:`1px solid ${c.border}`, color:c.text, fontWeight:'600', fontFamily:FF }}>{type}</span>;
   };
 
+  const marginColor = (m) => m >= 75 ? '#b0ffd8' : m >= 50 ? '#ffe0a0' : '#ffb0e0';
+
+  const viewBtn = (id, label) => (
+    <span onClick={() => setActiveView(id)} style={{ fontSize:'12px', padding:'8px 18px', borderRadius:'6px', cursor:'pointer', userSelect:'none', fontFamily:FF, fontWeight:activeView===id?'600':'400',
+      background: activeView===id ? '#f5e6e0' : 'transparent',
+      border:`1px solid ${activeView===id ? '#f5e6e0' : '#333'}`,
+      color: activeView===id ? '#181818' : '#888' }}>{label}</span>
+  );
+
   return (
     <div>
       <h1 style={H1}>PRICING INTELLIGENCE</h1>
-      <p style={SUB}>Tier 2 bulk API suppliers — the companies RUO sites source from</p>
+      <p style={SUB}>Bulk API costs, estimated margins, and Tier 2 supplier directory</p>
 
-      {/* Stats row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:'12px', marginBottom:'20px' }}>
-        {[
-          { label:'Suppliers', val: SUPPLIERS.filter(s=>s.type!=='Platform').length },
-          { label:'Manufacturers', val: SUPPLIERS.filter(s=>s.type==='Manufacturer').length },
-          { label:'Traders', val: SUPPLIERS.filter(s=>s.type==='Trader').length },
-          { label:'B2B Platforms', val: SUPPLIERS.filter(s=>s.type==='Platform').length },
-        ].map((s,i) => (
-          <div key={i} style={STAT_CARD}>
-            <div style={STAT_LABEL}>{s.label}</div>
-            <div style={{ fontSize:'22px', fontWeight:'600', color:'#f5e6e0', marginTop:'4px', fontFamily:FF }}>{s.val}</div>
-          </div>
-        ))}
+      {/* View toggle */}
+      <div style={{ display:'flex', gap:'8px', marginBottom:'24px' }}>
+        {viewBtn('products', 'PRODUCT MARGINS')}
+        {viewBtn('suppliers', 'SUPPLIER DIRECTORY')}
       </div>
 
-      {/* Info callout */}
-      <div style={{ background:'#0a1428', border:'1px solid #1a2a3a', borderRadius:'8px', padding:'14px 16px', marginBottom:'20px', display:'flex', gap:'12px', alignItems:'flex-start' }}>
-        <span style={{ color:'#b0d4ff', fontSize:'16px', marginTop:'1px' }}>ℹ</span>
+      {/* ── PRODUCTS VIEW ─────────────────────────────────────── */}
+      {activeView === 'products' && (
         <div>
-          <p style={{ fontSize:'13px', color:'#b0d4ff', margin:'0 0 4px', fontWeight:'600', fontFamily:FF }}>Pricing is quote-only at this tier</p>
-          <p style={{ fontSize:'12px', color:'#777', margin:0, lineHeight:'1.6', fontFamily:FF }}>These suppliers do not publish price lists. You submit an RFQ (request for quote) via their platform or direct website, send a sample order (typically 1–5g), and negotiate from there. MOQ, price per gram, COA requirements, and lead time are all negotiated directly.</p>
+          {/* Info callout */}
+          <div style={{ background:'#0a1e14', border:'1px solid #1a3a2a', borderRadius:'8px', padding:'12px 16px', marginBottom:'20px', display:'flex', gap:'10px', alignItems:'flex-start' }}>
+            <span style={{ color:'#b0ffd8', fontSize:'15px' }}>ℹ</span>
+            <p style={{ fontSize:'12px', color:'#6a9a7a', margin:0, lineHeight:'1.6', fontFamily:FF }}>
+              Bulk cost = estimated per-mg price from CN Tier 2 API supplier at small MOQ (1–10g). RUO sell price = typical retail per-mg on US/CA research sites. Margins are estimated midpoints — actual margins depend on your vial size, lyophilisation cost, overhead, and shipping. Use as a starting benchmark only.
+            </p>
+          </div>
+
+          {/* Controls */}
+          <div style={{ display:'flex', gap:'8px', marginBottom:'12px', flexWrap:'wrap' }}>
+            <input type="text" placeholder="Search product..." value={search} onChange={e=>setSearch(e.target.value)}
+              style={{ flex:1, minWidth:'160px', padding:'8px 12px', background:'#181818', border:'1px solid #333', borderRadius:'6px', color:'#fff', fontSize:'13px', fontFamily:FF }} />
+          </div>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'16px', flexWrap:'wrap' }}>
+            {CATS.map(c => {
+              const cc = c !== 'ALL' ? catColor(c) : null;
+              const isActive = activeCat === c;
+              return (
+                <span key={c} onClick={() => setActiveCat(c)} style={{ fontSize:'11px', padding:'4px 12px', borderRadius:'99px', cursor:'pointer', userSelect:'none',
+                  background: isActive && cc ? cc.bg : isActive ? '#f5e6e0' : 'transparent',
+                  border:`1px solid ${isActive && cc ? cc.border : isActive ? '#f5e6e0' : '#333'}`,
+                  color: isActive && cc ? cc.text : isActive ? '#181818' : '#888', fontFamily:FF, fontWeight:isActive?'600':'400' }}>{c}</span>
+              );
+            })}
+          </div>
+
+          {/* Table */}
+          <div style={{ ...CARD, padding:0, overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:'820px' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...TH, width:'160px' }}>Product</th>
+                  <th style={{ ...TH, width:'100px' }}>Category</th>
+                  <th style={{ ...TH, width:'140px' }}>Bulk Cost (CN API)</th>
+                  <th style={{ ...TH, width:'140px' }}>RUO Sell Price</th>
+                  <th style={{ ...TH, width:'90px' }}>Est. Margin</th>
+                  <th style={{ ...TH, width:'80px' }}>Min MOQ</th>
+                  <th style={{ ...TH }}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.length === 0 ? (
+                  <tr><td colSpan={7} style={{ ...TD, textAlign:'center', padding:'32px', color:'#444' }}>No results.</td></tr>
+                ) : filteredProducts.map((p, i) => {
+                  const cc = catColor(p.cat);
+                  const m = midMargin(p);
+                  return (
+                    <tr key={i} className="aria-row" style={{ background: i%2===0 ? '#161616' : '#111' }}>
+                      <td style={{ ...TD, fontWeight:'500', color:'#eee' }}>{p.name}</td>
+                      <td style={TD}>
+                        <span style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:cc.bg, border:`1px solid ${cc.border}`, color:cc.text, fontWeight:'600', fontFamily:FF }}>{p.cat}</span>
+                      </td>
+                      <td style={TD}>
+                        <span style={{ color:'#ffb0e0', fontWeight:'500' }}>${p.bulk_low.toFixed(4)}</span>
+                        <span style={{ color:'#444', fontSize:'11px' }}> – </span>
+                        <span style={{ color:'#ffb0e0', fontWeight:'500' }}>${p.bulk_high.toFixed(4)}</span>
+                        <span style={{ color:'#555', fontSize:'11px' }}>/mg</span>
+                      </td>
+                      <td style={TD}>
+                        <span style={{ color:'#b0ffd8', fontWeight:'500' }}>${p.ruo_low.toFixed(4)}</span>
+                        <span style={{ color:'#444', fontSize:'11px' }}> – </span>
+                        <span style={{ color:'#b0ffd8', fontWeight:'500' }}>${p.ruo_high.toFixed(4)}</span>
+                        <span style={{ color:'#555', fontSize:'11px' }}>/mg</span>
+                      </td>
+                      <td style={TD}>
+                        <span style={{ fontSize:'15px', fontWeight:'700', color:marginColor(m) }}>{m}%</span>
+                        <div style={{ marginTop:'3px', height:'4px', background:'#222', borderRadius:'2px', width:'60px' }}>
+                          <div style={{ height:'4px', borderRadius:'2px', width:`${Math.min(m,100)}%`, background:marginColor(m), transition:'width 0.3s' }} />
+                        </div>
+                      </td>
+                      <td style={{ ...TD, color:'#aaa', fontSize:'12px' }}>{p.moq_g}g</td>
+                      <td style={{ ...TD, fontSize:'11px', color:'#555', lineHeight:'1.5' }}>{p.notes}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ ...P, fontSize:'11px', color:'#444', marginTop:'10px' }}>
+            All prices estimated April 2026. Bulk cost based on CN Tier 2 API supplier quotes and market research. RUO sell price from live scrapes of US/CA research sites. Actual margins will vary with vial size, lyophilisation, labour, and overhead.
+          </p>
         </div>
-      </div>
+      )}
 
-      {/* Controls */}
-      <div style={{ display:'flex', gap:'8px', marginBottom:'12px', flexWrap:'wrap', alignItems:'center' }}>
-        <input type="text" placeholder="Search by name or product..." value={supSearch} onChange={e => setSupSearch(e.target.value)}
-          style={{ flex:1, minWidth:'200px', padding:'8px 12px', background:'#181818', border:'1px solid #333', borderRadius:'6px', color:'#fff', fontSize:'13px', fontFamily:FF }} />
-      </div>
-
-      {/* Filter pills */}
-      <div style={{ display:'flex', gap:'8px', marginBottom:'16px', flexWrap:'wrap', alignItems:'center' }}>
-        {TYPES.map(t => (
-          <span key={t} onClick={() => setSupType(t)}
-            style={{ fontSize:'11px', padding:'4px 12px', borderRadius:'99px', cursor:'pointer', userSelect:'none',
-              background: supType===t ? '#f5e6e0' : 'transparent',
-              border:`1px solid ${supType===t ? '#f5e6e0' : '#333'}`,
-              color: supType===t ? '#181818' : '#888', fontFamily:FF, fontWeight:supType===t?'600':'400' }}>
-            {t === 'ALL' ? 'All types' : t}
-          </span>
-        ))}
-      </div>
-
-      {/* Table */}
-      <div style={{ ...CARD, padding:0, overflowX:'auto' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:'780px' }}>
-          <thead>
-            <tr>
-              <th style={{ ...TH, width:'200px' }}>Company</th>
-              <th style={{ ...TH, width:'140px' }}>Location</th>
-              <th style={{ ...TH, width:'90px' }}>Type</th>
-              <th style={{ ...TH, width:'220px' }}>Key Products</th>
-              <th style={{ ...TH, width:'80px' }}>MOQ</th>
-              <th style={{ ...TH, width:'80px' }}>Contact via</th>
-              <th style={{ ...TH, width:'60px' }}>Link</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={7} style={{ ...TD, textAlign:'center', padding:'32px', color:'#444' }}>No results.</td></tr>
-            ) : filtered.map((s,i) => (
-              <tr key={i} className="aria-row" style={{ background: i%2===0 ? '#161616' : '#111' }}>
-                <td style={TD}>
-                  <div style={{ fontWeight:'500', color:'#eee', marginBottom:'3px', fontFamily:FF }}>{s.name}</div>
-                  {s.notes && <div style={{ fontSize:'11px', color:'#555', lineHeight:'1.5', fontFamily:FF }}>{s.notes}</div>}
-                </td>
-                <td style={{ ...TD, color:'#888', fontSize:'12px' }}>{s.city}</td>
-                <td style={TD}>{typePill(s.type)}</td>
-                <td style={TD}>
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:'4px' }}>
-                    {s.products.slice(0,5).map((p,j) => (
-                      <span key={j} style={{ fontSize:'10px', padding:'2px 6px', borderRadius:'4px', background:'#222', border:'1px solid #2a2a2a', color:'#aaa', fontFamily:FF }}>{p}</span>
-                    ))}
-                    {s.products.length > 5 && <span style={{ fontSize:'10px', color:'#555', padding:'2px 4px', fontFamily:FF }}>+{s.products.length-5} more</span>}
-                  </div>
-                </td>
-                <td style={{ ...TD, color:'#ccc', fontSize:'12px' }}>{s.moq}</td>
-                <td style={{ ...TD, color:'#888', fontSize:'12px' }}>{s.contact}</td>
-                <td style={TD}>
-                  <a href={s.url} target="_blank" rel="noreferrer"
-                    style={{ fontSize:'11px', color:'#b0d4ff', textDecoration:'none', padding:'3px 8px', border:'1px solid #1a2a3a', borderRadius:'4px', background:'#0a1428', fontFamily:FF, whiteSpace:'nowrap' }}>
-                    → visit
-                  </a>
-                </td>
-              </tr>
+      {/* ── SUPPLIERS VIEW ────────────────────────────────────── */}
+      {activeView === 'suppliers' && (
+        <div>
+          <div style={{ background:'#0a1428', border:'1px solid #1a2a3a', borderRadius:'8px', padding:'12px 16px', marginBottom:'20px', display:'flex', gap:'10px', alignItems:'flex-start' }}>
+            <span style={{ color:'#b0d4ff', fontSize:'15px' }}>ℹ</span>
+            <p style={{ fontSize:'12px', color:'#6a7a9a', margin:0, lineHeight:'1.6', fontFamily:FF }}>
+              These are the Tier 2 Chinese bulk API suppliers that RUO sites source from. Pricing is quote-only — submit an RFQ via their platform, request a 1–5g sample with COA, then negotiate.
+            </p>
+          </div>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'12px', flexWrap:'wrap' }}>
+            <input type="text" placeholder="Search by name or product..." value={supSearch} onChange={e=>setSupSearch(e.target.value)}
+              style={{ flex:1, minWidth:'200px', padding:'8px 12px', background:'#181818', border:'1px solid #333', borderRadius:'6px', color:'#fff', fontSize:'13px', fontFamily:FF }} />
+          </div>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'16px', flexWrap:'wrap' }}>
+            {TYPES.map(t => (
+              <span key={t} onClick={() => setSupType(t)} style={{ fontSize:'11px', padding:'4px 12px', borderRadius:'99px', cursor:'pointer', userSelect:'none',
+                background: supType===t ? '#f5e6e0' : 'transparent', border:`1px solid ${supType===t ? '#f5e6e0' : '#333'}`,
+                color: supType===t ? '#181818' : '#888', fontFamily:FF, fontWeight:supType===t?'600':'400' }}>
+                {t === 'ALL' ? 'All types' : t}
+              </span>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* How to source guide */}
-      <div style={{ ...CARD, marginTop:'20px' }}>
-        <h3 style={H3}>HOW TO GET ACTUAL QUOTES</h3>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'12px', marginTop:'12px' }}>
-          {[
-            { step:'1', title:'Request sample', body:'Contact via Alibaba/MIC RFQ or direct website. Ask for 1–5g sample of target peptide with COA.' },
-            { step:'2', title:'Verify the COA', body:'Run independent HPLC + mass spec before committing to bulk. Use Janoshik or a local lab.' },
-            { step:'3', title:'Negotiate MOQ', body:'Typical MOQ drops from 1g to 50g+ for meaningful price breaks. Bigger orders = better $/mg.' },
-            { step:'4', title:'Confirm export docs', body:'Ask for COA, MSDS, and HS code. Peptides typically ship as "research chemicals" — verify customs rules for Canada.' },
-          ].map((item,i) => (
-            <div key={i} style={{ background:'#111', borderRadius:'6px', padding:'12px 14px', border:'1px solid #222' }}>
-              <div style={{ fontSize:'10px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'4px', fontFamily:FF }}>Step {item.step}</div>
-              <div style={{ fontSize:'13px', fontWeight:'600', color:'#ddd', marginBottom:'6px', fontFamily:FF }}>{item.title}</div>
-              <div style={{ fontSize:'12px', color:'#777', lineHeight:'1.6', fontFamily:FF }}>{item.body}</div>
-            </div>
-          ))}
+          </div>
+          <div style={{ ...CARD, padding:0, overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:'780px' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...TH, width:'200px' }}>Company</th>
+                  <th style={{ ...TH, width:'140px' }}>Location</th>
+                  <th style={{ ...TH, width:'90px' }}>Type</th>
+                  <th style={{ ...TH, width:'220px' }}>Key Products</th>
+                  <th style={{ ...TH, width:'80px' }}>MOQ</th>
+                  <th style={{ ...TH, width:'80px' }}>Contact via</th>
+                  <th style={{ ...TH, width:'60px' }}>Link</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSuppliers.length === 0 ? (
+                  <tr><td colSpan={7} style={{ ...TD, textAlign:'center', padding:'32px', color:'#444' }}>No results.</td></tr>
+                ) : filteredSuppliers.map((s,i) => (
+                  <tr key={i} className="aria-row" style={{ background: i%2===0 ? '#161616' : '#111' }}>
+                    <td style={TD}>
+                      <div style={{ fontWeight:'500', color:'#eee', marginBottom:'2px', fontFamily:FF }}>{s.name}</div>
+                      {s.notes && <div style={{ fontSize:'11px', color:'#555', lineHeight:'1.4', fontFamily:FF }}>{s.notes}</div>}
+                    </td>
+                    <td style={{ ...TD, color:'#888', fontSize:'12px' }}>{s.city}</td>
+                    <td style={TD}>{typePill(s.type)}</td>
+                    <td style={TD}>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:'4px' }}>
+                        {s.products.slice(0,4).map((p,j) => (
+                          <span key={j} style={{ fontSize:'10px', padding:'2px 6px', borderRadius:'4px', background:'#222', border:'1px solid #2a2a2a', color:'#aaa', fontFamily:FF }}>{p}</span>
+                        ))}
+                        {s.products.length > 4 && <span style={{ fontSize:'10px', color:'#555', padding:'2px 4px', fontFamily:FF }}>+{s.products.length-4} more</span>}
+                      </div>
+                    </td>
+                    <td style={{ ...TD, color:'#ccc', fontSize:'12px' }}>{s.moq}</td>
+                    <td style={{ ...TD, color:'#888', fontSize:'12px' }}>{s.contact}</td>
+                    <td style={TD}>
+                      <a href={s.url} target="_blank" rel="noreferrer" style={{ fontSize:'11px', color:'#b0d4ff', textDecoration:'none', padding:'3px 8px', border:'1px solid #1a2a3a', borderRadius:'4px', background:'#0a1428', fontFamily:FF, whiteSpace:'nowrap' }}>→ visit</a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-
-      <p style={{ ...P, fontSize:'11px', color:'#444', marginTop:'12px' }}>
-        Supplier directory compiled April 2026. All pricing at this tier is quote-only — submit RFQs directly via the linked platforms. Manufacturer vs Trader distinction matters: manufacturers synthesise from scratch, traders resell from manufacturers.
-      </p>
+      )}
     </div>
   );
 }
