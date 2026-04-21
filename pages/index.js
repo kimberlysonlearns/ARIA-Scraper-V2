@@ -797,33 +797,7 @@ export default function Home() {
   const fmt = iso => iso ? new Date(iso).toLocaleString() : '';
   const comparison = buildComparison(competitors, scrapeResults);
 
-  // Market-filtered comparison — applies CAD→USD conversion for CA competitors
-  const filteredComparison = (() => {
-    // Build a competitor lookup: name → {country, currency}
-    const compMap = {};
-    competitors.forEach(c => { compMap[c.name] = { country: c.country || 'US', currency: c.currency || 'USD' }; });
-
-    return comparison.map(product => {
-      const filteredSites = {};
-      Object.entries(product.sites).forEach(([siteName, siteData]) => {
-        const comp = compMap[siteName] || { country: 'US', currency: 'USD' };
-        // Apply market filter
-        if (analysisMarket === 'CA' && comp.country !== 'CA') return;
-        if (analysisMarket === 'US' && comp.country !== 'US') return;
-        // Convert CAD to USD
-        const convertedValue = comp.currency === 'CAD' && siteData.value
-          ? Math.round(siteData.value * cadUsdRate * 100) / 100
-          : siteData.value;
-        const convertedPrice = comp.currency === 'CAD' && siteData.price
-          ? `$${(parseFloat(siteData.price.replace('$','').replace(',','')) * cadUsdRate).toFixed(2)} (${siteData.price} CAD)`
-          : siteData.price;
-        filteredSites[siteName] = { ...siteData, value: convertedValue, price: convertedPrice };
-      });
-      return { ...product, sites: filteredSites };
-    }).filter(p => Object.keys(p.sites).length > 0);
-  })();
-
-  const activeComparison = filteredComparison;
+  const activeComparison = comparison;
   const allPrices = activeComparison.flatMap(p => Object.values(p.sites).map(s => s.value).filter(Boolean));
 
   // Cheapest site by avg price
@@ -1354,7 +1328,15 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 {/* Comparison table */}
                 {(() => {
                   const categories = ['ALL', ...new Set(activeComparison.map(p => p.category))];
-                  const allSites = [...new Set(activeComparison.flatMap(p => Object.keys(p.sites)))];
+                  // Build competitor lookup for country tags
+                  const compCountry = {};
+                  competitors.forEach(c => { compCountry[c.name] = c.country || 'US'; });
+                  // Filter sites by selected market
+                  const allSites = [...new Set(activeComparison.flatMap(p => Object.keys(p.sites)))]
+                    .filter(site => {
+                      if (analysisMarket === 'ALL') return true;
+                      return compCountry[site] === analysisMarket;
+                    });
                   const filtered = activeComparison
                     .filter(p => analysisFilter === 'ALL' || p.category === analysisFilter)
                     .sort((a, b) => {
@@ -1385,9 +1367,23 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                       <div style={{ overflowX: 'auto' }}>
                         <div style={{ minWidth: `${200 + 140 + allSites.length * 130}px` }}>
                           <div style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '130px').join(' ')}`, marginBottom: '4px' }}>
-                            {['PRODUCT', 'CATEGORY', ...allSites].map((h, i) => (
-                              <div key={i} style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>{h}</div>
-                            ))}
+                            {['PRODUCT', 'CATEGORY', ...allSites].map((h, i) => {
+                              const country = i >= 2 ? (compCountry[h] || 'US') : null;
+                              return (
+                                <div key={i} style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>
+                                  {h}
+                                  {country && (
+                                    <span style={{ marginLeft:'5px', fontSize:'9px', padding:'1px 5px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
+                                      background: country==='CA' ? '#281e0a' : '#0a1428',
+                                      border: `1px solid ${country==='CA' ? '#ffe0a0' : '#b0d4ff'}`,
+                                      color: country==='CA' ? '#ffe0a0' : '#b0d4ff' }}>
+                                      {country}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                           </div>
                           <div style={{ display: 'grid', gap: '3px' }}>
                             {filtered.map((p, i) => {
