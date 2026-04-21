@@ -693,16 +693,19 @@ export default function Home() {
   const [scrapeResults, setScrapeResults] = useState({});
   const [prevScrapeResults, setPrevScrapeResults] = useState({});
   const [priceChanges, setPriceChanges] = useState([]);
+  const [cadUsdRate, setCadUsdRate] = useState(0.72);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', website: '' });
+  const [form, setForm] = useState({ name: '', website: '', country: 'US' });
   const [scraping, setScraping] = useState({});
   const [analysisFilter, setAnalysisFilter] = useState('ALL');
   const [analysisSortBy, setAnalysisSortBy] = useState('name');
+  const [analysisMarket, setAnalysisMarket] = useState('ALL');
 
   // ── Persist to localStorage ──────────────────────────────────────
   useEffect(() => {
     try {
       const c = localStorage.getItem('aria_competitors'); if (c) setCompetitors(JSON.parse(c));
+      const r = localStorage.getItem('aria_cad_usd'); if (r) setCadUsdRate(parseFloat(r));
       const r = localStorage.getItem('aria_results'); if (r) setScrapeResults(JSON.parse(r));
       const p = localStorage.getItem('aria_prev_results'); if (p) setPrevScrapeResults(JSON.parse(p));
       const ch = localStorage.getItem('aria_changes'); if (ch) setPriceChanges(JSON.parse(ch));
@@ -710,6 +713,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => { try { localStorage.setItem('aria_competitors', JSON.stringify(competitors)); } catch {} }, [competitors]);
+  useEffect(() => { try { localStorage.setItem('aria_cad_usd', String(cadUsdRate)); } catch {} }, [cadUsdRate]);
   useEffect(() => { try { localStorage.setItem('aria_results', JSON.stringify(scrapeResults)); } catch {} }, [scrapeResults]);
   useEffect(() => { try { localStorage.setItem('aria_prev_results', JSON.stringify(prevScrapeResults)); } catch {} }, [prevScrapeResults]);
   useEffect(() => { try { localStorage.setItem('aria_changes', JSON.stringify(priceChanges)); } catch {} }, [priceChanges]);
@@ -729,8 +733,8 @@ export default function Home() {
     if (!form.website.trim()) { alert('Please enter a website URL'); return; }
     let website = form.website.trim();
     if (!website.startsWith('http')) website = 'https://' + website;
-    setCompetitors(prev => [...prev, { id: Date.now(), name: form.name.toUpperCase(), website, items: 0 }]);
-    setForm({ name: '', website: '' });
+    setCompetitors(prev => [...prev, { id: Date.now(), name: form.name.toUpperCase(), website, items: 0, country: form.country || 'US', currency: form.country === 'CA' ? 'CAD' : 'USD' }]);
+    setForm({ name: '', website: '', country: 'US' });
     setShowModal(false);
   };
 
@@ -792,12 +796,40 @@ export default function Home() {
 
   const fmt = iso => iso ? new Date(iso).toLocaleString() : '';
   const comparison = buildComparison(competitors, scrapeResults);
-  const allPrices = comparison.flatMap(p => Object.values(p.sites).map(s => s.value).filter(Boolean));
+
+  // Market-filtered comparison — applies CAD→USD conversion for CA competitors
+  const filteredComparison = (() => {
+    // Build a competitor lookup: name → {country, currency}
+    const compMap = {};
+    competitors.forEach(c => { compMap[c.name] = { country: c.country || 'US', currency: c.currency || 'USD' }; });
+
+    return comparison.map(product => {
+      const filteredSites = {};
+      Object.entries(product.sites).forEach(([siteName, siteData]) => {
+        const comp = compMap[siteName] || { country: 'US', currency: 'USD' };
+        // Apply market filter
+        if (analysisMarket === 'CA' && comp.country !== 'CA') return;
+        if (analysisMarket === 'US' && comp.country !== 'US') return;
+        // Convert CAD to USD
+        const convertedValue = comp.currency === 'CAD' && siteData.value
+          ? Math.round(siteData.value * cadUsdRate * 100) / 100
+          : siteData.value;
+        const convertedPrice = comp.currency === 'CAD' && siteData.price
+          ? `$${(parseFloat(siteData.price.replace('$','').replace(',','')) * cadUsdRate).toFixed(2)} (${siteData.price} CAD)`
+          : siteData.price;
+        filteredSites[siteName] = { ...siteData, value: convertedValue, price: convertedPrice };
+      });
+      return { ...product, sites: filteredSites };
+    }).filter(p => Object.keys(p.sites).length > 0);
+  })();
+
+  const activeComparison = filteredComparison;
+  const allPrices = activeComparison.flatMap(p => Object.values(p.sites).map(s => s.value).filter(Boolean));
 
   // Cheapest site by avg price
   const cheapestSite = (() => {
     const totals = {};
-    comparison.forEach(p => Object.entries(p.sites).forEach(([site, { value }]) => {
+    activeComparison.forEach(p => Object.entries(p.sites).forEach(([site, { value }]) => {
       if (value) totals[site] = (totals[site] || []).concat(value);
     }));
     let best = null, bestAvg = Infinity;
@@ -1070,7 +1102,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     </div>
                     {/* Name + link */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '14px', color: '#ddd', fontWeight: '500' }}>{c.name}</div>
+                      <div style={{ fontSize: '14px', color: '#ddd', fontWeight: '500', display:'flex', alignItems:'center', gap:'6px' }}>
+                        {c.name}
+                        {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background: c.country==='CA' ? '#281e0a' : '#0a1428', border: `1px solid ${c.country==='CA' ? '#ffe0a0' : '#b0d4ff'}`, color: c.country==='CA' ? '#ffe0a0' : '#b0d4ff' }}>{c.country}</span>}
+                      </div>
                       <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#888', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {c.website}
                       </a>
@@ -1141,7 +1176,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   <div key={c.id} className="aria-card" style={CARD}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div>
-                        <h3 style={{ ...H3, margin: 0 }}>{c.name}</h3>
+                        <h3 style={{ ...H3, margin: 0, display:'flex', alignItems:'center', gap:'6px' }}>
+                          {c.name}
+                          {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background: c.country==='CA' ? '#281e0a' : '#0a1428', border: `1px solid ${c.country==='CA' ? '#ffe0a0' : '#b0d4ff'}`, color: c.country==='CA' ? '#ffe0a0' : '#b0d4ff', textTransform:'none', letterSpacing:'0' }}>{c.country} · {c.currency || 'USD'}</span>}
+                        </h3>
                         <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#888', textDecoration: 'none' }}>{c.website}</a>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1214,6 +1252,15 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '14px', marginBottom: '14px', boxSizing: 'border-box' }} />
                     </div>
                   ))}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Market / Country</label>
+                    <select value={form.country} onChange={e => setForm({ ...form, country: e.target.value })}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '14px', marginBottom: '14px' }}>
+                      <option value="US">🇺🇸 United States (USD)</option>
+                      <option value="CA">🇨🇦 Canada (CAD)</option>
+                      <option value="OTHER">🌐 Other (USD)</option>
+                    </select>
+                  </div>
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                     <button className="aria-btn" style={BTN} onClick={() => setShowModal(false)}>CANCEL</button>
                     <button className="aria-btn-primary" style={BTN_PRIMARY} onClick={handleAddCompetitor}>ADD</button>
@@ -1228,7 +1275,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
         {activePage === 'analysis' && (
           <div>
             <h1 style={H1}>ANALYSIS</h1>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
               <p style={{ ...SUB, margin: 0 }}>Price comparison and change detection</p>
               {comparison.length > 0 && (
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -1239,6 +1286,20 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     EXPORT REPORT
                   </button>
                 </div>
+              )}
+            </div>
+
+            {/* Market filter */}
+            <div style={{ display:'flex', gap:'8px', marginBottom:'20px', flexWrap:'wrap', alignItems:'center' }}>
+              {[['ALL','All Markets'],['CA','🇨🇦 Canada (CAD)'],['US','🇺🇸 United States (USD)']].map(([v,label]) => (
+                <span key={v} onClick={() => setAnalysisMarket(v)} style={{ fontSize:'12px', padding:'5px 14px', borderRadius:'99px', cursor:'pointer', userSelect:'none', fontFamily: FF,
+                  background: analysisMarket===v ? (v==='CA' ? '#281e0a' : v==='US' ? '#0a1428' : '#f5e6e0') : 'transparent',
+                  border: `1px solid ${analysisMarket===v ? (v==='CA' ? '#ffe0a0' : v==='US' ? '#b0d4ff' : '#f5e6e0') : '#333'}`,
+                  color: analysisMarket===v ? (v==='CA' ? '#ffe0a0' : v==='US' ? '#b0d4ff' : '#181818') : '#888',
+                  fontWeight: analysisMarket===v ? '600' : '400' }}>{label}</span>
+              ))}
+              {analysisMarket === 'CA' && (
+                <span style={{ fontSize:'11px', color:'#888', fontFamily:FF }}>Prices converted to USD at {cadUsdRate.toFixed(2)} · Update in Settings</span>
               )}
             </div>
 
@@ -1255,7 +1316,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
                   <div style={STAT_CARD}><div style={STAT_LABEL}>Cheapest Overall</div><div style={{ fontSize: '14px', color: '#b0ffd8', fontWeight: '500', marginTop: '6px' }}>{cheapestSite || '—'}</div></div>
-                  <div style={STAT_CARD}><div style={STAT_LABEL}>Products Compared</div><div style={{ fontSize: '28px', color: '#f5e6e0', marginTop: '4px' }}>{comparison.length}</div></div>
+                  <div style={STAT_CARD}><div style={STAT_LABEL}>Products Compared</div><div style={{ fontSize: '28px', color: '#f5e6e0', marginTop: '4px' }}>{activeComparison.length}</div></div>
                   <div style={STAT_CARD}><div style={STAT_LABEL}>Price Range</div><div style={{ fontSize: '14px', color: '#f5e6e0', fontWeight: '500', marginTop: '6px' }}>{allPrices.length ? `$${Math.min(...allPrices).toFixed(2)} – $${Math.max(...allPrices).toFixed(2)}` : '—'}</div></div>
                   <div style={STAT_CARD}><div style={STAT_LABEL}>Price Changes</div><div style={{ fontSize: '28px', color: priceChanges.length > 0 ? '#ffe0a0' : '#f5e6e0', marginTop: '4px' }}>{priceChanges.length}</div></div>
                 </div>
@@ -1292,9 +1353,9 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
                 {/* Comparison table */}
                 {(() => {
-                  const categories = ['ALL', ...new Set(comparison.map(p => p.category))];
-                  const allSites = [...new Set(comparison.flatMap(p => Object.keys(p.sites)))];
-                  const filtered = comparison
+                  const categories = ['ALL', ...new Set(activeComparison.map(p => p.category))];
+                  const allSites = [...new Set(activeComparison.flatMap(p => Object.keys(p.sites)))];
+                  const filtered = activeComparison
                     .filter(p => analysisFilter === 'ALL' || p.category === analysisFilter)
                     .sort((a, b) => {
                       if (analysisSortBy === 'name') return a.name.localeCompare(b.name);
@@ -1502,6 +1563,23 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
           <div>
             <h1 style={H1}>SETTINGS</h1>
             <p style={SUB}>Configure your ARIA platform</p>
+            <div className="aria-card" style={CARD}>
+              <h3 style={H3}>CURRENCY SETTINGS</h3>
+              <p style={P}>CAD competitors have their prices converted to USD in the Analysis tab. Update this rate when the exchange rate shifts significantly.</p>
+              <div style={{ display:'flex', alignItems:'center', gap:'12px', marginTop:'12px', flexWrap:'wrap' }}>
+                <div>
+                  <label style={{ display:'block', fontSize:'10px', color:'#777', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'5px', fontFamily:FF }}>CAD → USD Rate</label>
+                  <input type="number" step="0.01" min="0.5" max="1.2" value={cadUsdRate}
+                    onChange={e => setCadUsdRate(parseFloat(e.target.value) || 0.72)}
+                    style={{ width:'100px', padding:'8px 10px', background:'#111', border:'1px solid #333', borderRadius:'6px', color:'#fff', fontSize:'14px', fontFamily:FF }} />
+                </div>
+                <div style={{ fontSize:'13px', color:'#888', fontFamily:FF, marginTop:'18px' }}>
+                  e.g. $100 CAD = ${(100 * cadUsdRate).toFixed(2)} USD at current rate
+                </div>
+                <button style={{ ...BTN, marginTop:'18px', fontSize:'11px', padding:'6px 12px' }} onClick={() => setCadUsdRate(0.72)}>RESET TO 0.72</button>
+              </div>
+            </div>
+
             <div className="aria-card" style={CARD}>
               <h3 style={H3}>DATA MANAGEMENT</h3>
               <p style={P}>All data is saved in your browser and survives page refreshes. Includes competitors, scan results, and price change history.</p>
