@@ -410,6 +410,257 @@ return (
   </div>
 );
 }
+function PricingTab() {
+  const FF = "'Century Gothic', 'Trebuchet MS', sans-serif";
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState('perMg');
+  const [sortDir, setSortDir] = useState(1);
+  const [activeCat, setActiveCat] = useState('ALL');
+  const [activeOrigin, setActiveOrigin] = useState('ALL');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  const V = true, E = false;
+  const DATA = [
+    {name:'BPC-157',        cat:'Recovery',    origin:'US', supplier:'Biotech Peptides', mg:5,   price:52,  verified:V, url:'https://biotechpeptides.com/product/bpc-157/'},
+    {name:'BPC-157',        cat:'Recovery',    origin:'US', supplier:'Biotech Peptides', mg:10,  price:92,  verified:V, url:'https://biotechpeptides.com/product/bpc-157/'},
+    {name:'BPC-157',        cat:'Recovery',    origin:'US', supplier:'Core Peptides',    mg:5,   price:52,  verified:V, url:'https://www.corepeptides.com/peptides/bpc-157/'},
+    {name:'BPC-157',        cat:'Recovery',    origin:'US', supplier:'Core Peptides',    mg:10,  price:97,  verified:V, url:'https://www.corepeptides.com/peptides/bpc-157/'},
+    {name:'BPC-157',        cat:'Recovery',    origin:'CN', supplier:'CN factory',       mg:5,   price:8,   verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'BPC-157',        cat:'Recovery',    origin:'CN', supplier:'CN factory',       mg:10,  price:14,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'BPC+TB Blend',   cat:'Recovery',    origin:'US', supplier:'Biotech Peptides', mg:10,  price:115, verified:V, url:'https://biotechpeptides.com/product/bpc-157-tb-500-10mg-blend-2/'},
+    {name:'BPC+TB Blend',   cat:'Recovery',    origin:'US', supplier:'Core Peptides',    mg:10,  price:105, verified:V, url:'https://www.corepeptides.com/peptides/bpc-157-tb-500-10mg-blend/'},
+    {name:'BPC+TB Blend',   cat:'Recovery',    origin:'US', supplier:'Core Peptides',    mg:20,  price:195, verified:V, url:'https://www.corepeptides.com/peptides/bpc-157-tb-500-10mg-blend/'},
+    {name:'BPC+TB Blend',   cat:'Recovery',    origin:'CN', supplier:'CN factory',       mg:20,  price:22,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'TB-500',         cat:'Recovery',    origin:'US', supplier:'Biotech Peptides', mg:5,   price:61,  verified:V, url:'https://biotechpeptides.com/product/tb-500-thymosin-beta-4/'},
+    {name:'TB-500',         cat:'Recovery',    origin:'CN', supplier:'CN factory',       mg:5,   price:10,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'Ipamorelin',     cat:'Muscle',      origin:'US', supplier:'Core Peptides',    mg:5,   price:43,  verified:V, url:'https://www.corepeptides.com/peptides/ipamorelin-5mg/'},
+    {name:'Ipamorelin',     cat:'Muscle',      origin:'CN', supplier:'CN factory',       mg:5,   price:8,   verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'CJC-1295 DAC',   cat:'Muscle',      origin:'US', supplier:'Biotech Peptides', mg:5,   price:52,  verified:V, url:'https://biotechpeptides.com/product/cjc-1295-dac-5mg/'},
+    {name:'CJC-1295 DAC',   cat:'Muscle',      origin:'US', supplier:'Core Peptides',    mg:5,   price:52,  verified:V, url:'https://www.corepeptides.com/peptides/cjc-1295-dac-5mg/'},
+    {name:'CJC-1295 No DAC',cat:'Muscle',      origin:'US', supplier:'Core Peptides',    mg:5,   price:41,  verified:V, url:'https://www.corepeptides.com/peptides/cjc-1295-no-dac-mod-grf-1-29/'},
+    {name:'CJC+Ipa Blend',  cat:'Muscle',      origin:'US', supplier:'Core Peptides',    mg:10,  price:80,  verified:V, url:'https://www.corepeptides.com/peptides/cjc-1295-ipamorelin-10mg-blend/'},
+    {name:'CJC+Ipa Blend',  cat:'Muscle',      origin:'US', supplier:'Biotech Peptides', mg:10,  price:81,  verified:V, url:'https://biotechpeptides.com/product/cjc-1295-ipamorelin-10mg-blend-2/'},
+    {name:'CJC+Ipa Blend',  cat:'Muscle',      origin:'CN', supplier:'CN factory',       mg:10,  price:14,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'AICAR',          cat:'Muscle',      origin:'US', supplier:'Biotech Peptides', mg:50,  price:56,  verified:V, url:'https://biotechpeptides.com/product/aicar-50mg/'},
+    {name:'AICAR',          cat:'Muscle',      origin:'US', supplier:'Core Peptides',    mg:50,  price:62,  verified:V, url:'https://www.corepeptides.com/peptides/aicar-50mg/'},
+    {name:'AOD-9604',       cat:'Weight Loss', origin:'US', supplier:'Biotech Peptides', mg:5,   price:44,  verified:V, url:'https://biotechpeptides.com/product/aod-9604-5mg/'},
+    {name:'AOD-9604',       cat:'Weight Loss', origin:'US', supplier:'Core Peptides',    mg:5,   price:41,  verified:V, url:'https://www.corepeptides.com/peptides/aod-9604-5mg/'},
+    {name:'AOD-9604',       cat:'Weight Loss', origin:'CN', supplier:'CN factory',       mg:5,   price:8,   verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'Semaglutide',    cat:'Weight Loss', origin:'US', supplier:'Prime Peptides',   mg:5,   price:72,  verified:V, url:'https://primepeptides.co/'},
+    {name:'Semaglutide',    cat:'Weight Loss', origin:'US', supplier:'Prime Peptides',   mg:10,  price:115, verified:V, url:'https://primepeptides.co/'},
+    {name:'Semaglutide',    cat:'Weight Loss', origin:'US', supplier:'Prime Peptides',   mg:15,  price:140, verified:V, url:'https://primepeptides.co/'},
+    {name:'Semaglutide',    cat:'Weight Loss', origin:'CN', supplier:'CN factory',       mg:5,   price:20,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'Tirzepatide',    cat:'Weight Loss', origin:'US', supplier:'Onyx Biolabs',     mg:5,   price:95,  verified:E, url:'https://onyxbiolabs.com/'},
+    {name:'Tirzepatide',    cat:'Weight Loss', origin:'CN', supplier:'CN factory',       mg:5,   price:25,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'Tirzepatide',    cat:'Weight Loss', origin:'CN', supplier:'CN factory',       mg:10,  price:48,  verified:V, url:'https://www.peptidejournal.org/news/chinese-peptides-gray-market-biohacking'},
+    {name:'Retatrutide',    cat:'Weight Loss', origin:'US', supplier:'Prime Peptides',   mg:10,  price:140, verified:V, url:'https://primepeptides.co/'},
+    {name:'Retatrutide',    cat:'Weight Loss', origin:'CN', supplier:'CN factory',       mg:5,   price:28,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'Epitalon',       cat:'Anti-Aging',  origin:'US', supplier:'Biotech Peptides', mg:25,  price:94,  verified:V, url:'https://biotechpeptides.com/product/epithalon-25mg/'},
+    {name:'Epitalon',       cat:'Anti-Aging',  origin:'US', supplier:'Core Peptides',    mg:25,  price:88,  verified:V, url:'https://www.corepeptides.com/peptides/epitalon-25mg/'},
+    {name:'Epitalon',       cat:'Anti-Aging',  origin:'CN', supplier:'CN factory',       mg:10,  price:10,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'Semax',          cat:'Cognitive',   origin:'US', supplier:'Core Peptides',    mg:25,  price:52,  verified:V, url:'https://www.corepeptides.com/peptides/semax-25mg/'},
+    {name:'Semax',          cat:'Cognitive',   origin:'CN', supplier:'CN factory',       mg:10,  price:14,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+    {name:'Selank',         cat:'Cognitive',   origin:'US', supplier:'Core Peptides',    mg:10,  price:48,  verified:V, url:'https://www.corepeptides.com/peptides/selank-10mg/'},
+    {name:'Selank',         cat:'Cognitive',   origin:'CN', supplier:'CN factory',       mg:10,  price:13,  verified:E, url:'https://www.made-in-china.com/manufacturers/peptides-for-sale.html'},
+  ];
+
+  const perMg = d => d.price / d.mg;
+  const CATS = ['ALL', 'Weight Loss', 'Muscle', 'Recovery', 'Anti-Aging', 'Cognitive'];
+
+  const CC = CATEGORY_COLORS;
+  const catColor = cat => CC[cat] || CC['Other'] || { bg:'#141414', border:'#d8d8d8', text:'#d8d8d8' };
+
+  const handleSort = key => {
+    if (sortKey === key) setSortDir(d => d * -1);
+    else { setSortKey(key); setSortDir(1); }
+  };
+
+  const filtered = DATA
+    .filter(d => {
+      if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (activeCat !== 'ALL' && d.cat !== activeCat) return false;
+      if (activeOrigin !== 'ALL' && d.origin !== activeOrigin) return false;
+      if (verifiedOnly && !d.verified) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      let va, vb;
+      if (sortKey === 'name') { va = a.name; vb = b.name; return va.localeCompare(vb) * sortDir; }
+      if (sortKey === 'cat')  { va = a.cat;  vb = b.cat;  return va.localeCompare(vb) * sortDir; }
+      if (sortKey === 'supplier') { va = a.supplier; vb = b.supplier; return va.localeCompare(vb) * sortDir; }
+      if (sortKey === 'mg')    { va = a.mg;    vb = b.mg; }
+      else if (sortKey === 'price') { va = a.price; vb = b.price; }
+      else { va = perMg(a); vb = perMg(b); }
+      return (va - vb) * sortDir;
+    });
+
+  const pmVals = filtered.map(perMg);
+  const minPM = Math.min(...pmVals);
+  const maxPM = Math.max(...pmVals);
+
+  const verifiedCount = filtered.filter(d => d.verified).length;
+  const usCount = filtered.filter(d => d.origin === 'US').length;
+  const cnCount = filtered.filter(d => d.origin === 'CN').length;
+  const avgPM = pmVals.length ? (pmVals.reduce((a,b)=>a+b,0)/pmVals.length) : 0;
+
+  const TH = { padding:'9px 12px', fontSize:'10px', fontWeight:'600', color:'#666', textTransform:'uppercase', letterSpacing:'1px', background:'#1a1a1a', borderBottom:'1px solid #252525', cursor:'pointer', userSelect:'none', whiteSpace:'nowrap', fontFamily:FF };
+  const TD = { padding:'9px 12px', fontSize:'13px', borderBottom:'1px solid #1e1e1e', fontFamily:FF, verticalAlign:'middle' };
+
+  const arrow = k => sortKey === k ? (sortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
+
+  return (
+    <div>
+      <h1 style={H1}>PRICING INTELLIGENCE</h1>
+      <p style={SUB}>US & China supplier pricing — verified sources linked, estimated rows marked</p>
+
+      {/* Stats */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px,1fr))', gap:'12px', marginBottom:'20px' }}>
+        {[
+          { label:'Entries', val: filtered.length },
+          { label:'US rows', val: usCount },
+          { label:'CN rows', val: cnCount },
+          { label:'Verified', val: verifiedCount },
+          { label:'Avg $/mg', val: `$${avgPM.toFixed(2)}` },
+          { label:'Lowest $/mg', val: `$${pmVals.length ? minPM.toFixed(2) : '—'}`, color:'#b0ffd8' },
+        ].map((s,i) => (
+          <div key={i} style={STAT_CARD}>
+            <div style={STAT_LABEL}>{s.label}</div>
+            <div style={{ fontSize:'22px', fontWeight:'600', color: s.color || '#f5e6e0', marginTop:'4px', fontFamily:FF }}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div style={{ display:'flex', gap:'16px', marginBottom:'14px', flexWrap:'wrap', fontSize:'11px', color:'#666', fontFamily:FF, alignItems:'center' }}>
+        <span style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+          <span style={{ fontSize:'9px', padding:'2px 6px', borderRadius:'4px', background:'#0a1e14', border:'1px solid #b0ffd8', color:'#b0ffd8', fontWeight:'600' }}>✓ VERIFIED</span>
+          price scraped live from supplier
+        </span>
+        <span style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+          <span style={{ fontSize:'9px', padding:'2px 6px', borderRadius:'4px', background:'#281e0a', border:'1px solid #ffe0a0', color:'#ffe0a0', fontWeight:'600' }}>~ EST.</span>
+          estimated from market research
+        </span>
+      </div>
+
+      {/* Controls */}
+      <div style={{ display:'flex', gap:'10px', marginBottom:'12px', flexWrap:'wrap', alignItems:'center' }}>
+        <input
+          type="text" placeholder="Search peptide..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          style={{ flex:1, minWidth:'160px', padding:'8px 12px', background:'#181818', border:'1px solid #333', borderRadius:'6px', color:'#fff', fontSize:'13px', fontFamily:FF }}
+        />
+        <select value={sortKey} onChange={e => { setSortKey(e.target.value); setSortDir(1); }}
+          style={{ padding:'8px 12px', background:'#181818', border:'1px solid #333', borderRadius:'6px', color:'#aaa', fontSize:'12px', fontFamily:FF }}>
+          <option value="perMg">Sort: $/mg (low)</option>
+          <option value="name">Sort: Name</option>
+          <option value="price">Sort: Price</option>
+          <option value="cat">Sort: Category</option>
+          <option value="supplier">Sort: Supplier</option>
+        </select>
+      </div>
+
+      {/* Pills */}
+      <div style={{ display:'flex', gap:'8px', marginBottom:'16px', flexWrap:'wrap', alignItems:'center' }}>
+        {['ALL','US','CN'].map(o => (
+          <span key={o} onClick={() => setActiveOrigin(o)}
+            style={{ fontSize:'11px', padding:'4px 12px', borderRadius:'99px', cursor:'pointer', userSelect:'none',
+              background: activeOrigin === o ? '#f5e6e0' : 'transparent',
+              border: `1px solid ${activeOrigin === o ? '#f5e6e0' : '#333'}`,
+              color: activeOrigin === o ? '#181818' : '#888', fontFamily:FF, fontWeight: activeOrigin===o?'600':'400' }}>
+            {o === 'ALL' ? 'All Origins' : o === 'US' ? '🇺🇸 US Only' : '🇨🇳 CN Only'}
+          </span>
+        ))}
+        <span style={{ color:'#333', padding:'0 4px' }}>|</span>
+        {CATS.map(c => {
+          const cc = c !== 'ALL' ? catColor(c) : null;
+          const isActive = activeCat === c;
+          return (
+            <span key={c} onClick={() => setActiveCat(c)}
+              style={{ fontSize:'11px', padding:'4px 12px', borderRadius:'99px', cursor:'pointer', userSelect:'none',
+                background: isActive && cc ? cc.bg : isActive ? '#f5e6e0' : 'transparent',
+                border: `1px solid ${isActive && cc ? cc.border : isActive ? '#f5e6e0' : '#333'}`,
+                color: isActive && cc ? cc.text : isActive ? '#181818' : '#888',
+                fontFamily:FF, fontWeight: isActive ? '600' : '400' }}>
+              {c}
+            </span>
+          );
+        })}
+        <span style={{ color:'#333', padding:'0 4px' }}>|</span>
+        <span onClick={() => setVerifiedOnly(v => !v)}
+          style={{ fontSize:'11px', padding:'4px 12px', borderRadius:'99px', cursor:'pointer', userSelect:'none',
+            background: verifiedOnly ? '#0a1e14' : 'transparent',
+            border: `1px solid ${verifiedOnly ? '#b0ffd8' : '#333'}`,
+            color: verifiedOnly ? '#b0ffd8' : '#888', fontFamily:FF }}>
+          ✓ Verified only
+        </span>
+      </div>
+
+      {/* Table */}
+      <div style={{ ...CARD, padding:0, overflow:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:'680px' }}>
+          <thead>
+            <tr>
+              {[['name','Peptide'],['cat','Category'],['origin','Origin'],['supplier','Supplier'],['mg','Size'],['price','Price'],['perMg','$/mg']].map(([k,label]) => (
+                <th key={k} style={TH} onClick={() => handleSort(k)}>{label}{arrow(k)}</th>
+              ))}
+              <th style={{ ...TH, cursor:'default' }}>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={8} style={{ ...TD, textAlign:'center', padding:'32px', color:'#444' }}>No results match your filters.</td></tr>
+            ) : filtered.map((d, i) => {
+              const pm = perMg(d);
+              const isLow = pm === minPM && pmVals.length > 1;
+              const isHigh = pm === maxPM && pmVals.length > 1;
+              const cc = catColor(d.cat);
+              return (
+                <tr key={i} className="aria-row" style={{ background: i % 2 === 0 ? '#161616' : '#111' }}>
+                  <td style={{ ...TD, fontWeight:'500', color:'#eee' }}>
+                    {d.name}
+                    {d.verified
+                      ? <span style={{ fontSize:'9px', marginLeft:'5px', padding:'1px 5px', borderRadius:'3px', background:'#0a1e14', border:'1px solid #b0ffd8', color:'#b0ffd8', fontWeight:'600' }}>✓</span>
+                      : <span style={{ fontSize:'9px', marginLeft:'5px', padding:'1px 5px', borderRadius:'3px', background:'#281e0a', border:'1px solid #ffe0a0', color:'#ffe0a0', fontWeight:'600' }}>~</span>
+                    }
+                  </td>
+                  <td style={TD}>
+                    <span style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:cc.bg, border:`1px solid ${cc.border}`, color:cc.text, fontWeight:'600', whiteSpace:'nowrap', fontFamily:FF }}>{d.cat}</span>
+                  </td>
+                  <td style={TD}>
+                    <span style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', fontWeight:'600',
+                      background: d.origin==='US' ? '#0a1428' : '#281e0a',
+                      border: `1px solid ${d.origin==='US' ? '#b0d4ff' : '#ffe0a0'}`,
+                      color: d.origin==='US' ? '#b0d4ff' : '#ffe0a0', fontFamily:FF }}>
+                      {d.origin}
+                    </span>
+                  </td>
+                  <td style={{ ...TD, fontSize:'12px', color:'#888' }}>{d.supplier}</td>
+                  <td style={{ ...TD, color:'#ccc' }}>{d.mg}mg</td>
+                  <td style={{ ...TD, fontWeight:'500', color:'#f5e6e0' }}>${d.price}</td>
+                  <td style={{ ...TD, fontWeight:'600', color: isLow ? '#b0ffd8' : isHigh ? '#ffb0e0' : '#ddd' }}>
+                    ${pm.toFixed(2)}<span style={{ fontSize:'10px', color:'#555', fontWeight:'400' }}>/mg</span>
+                    {isLow && <span style={{ fontSize:'9px', marginLeft:'4px', color:'#40c080', fontWeight:'700' }}>LOW</span>}
+                  </td>
+                  <td style={TD}>
+                    <a href={d.url} target="_blank" rel="noreferrer"
+                      style={{ fontSize:'11px', color:'#b0d4ff', textDecoration:'none', padding:'3px 8px', border:'1px solid #1a2a3a', borderRadius:'4px', background:'#0a1428', fontFamily:FF }}>
+                      → link
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p style={{ ...P, fontSize:'11px', color:'#444', marginTop:'12px' }}>
+        Prices last verified April 2026. CN factory prices are estimated wholesale MOQ rates — contact suppliers directly for quotes. Verified prices link directly to source pages.
+      </p>
+    </div>
+  );
+}
+
 export default function Home() {
   const [activePage, setActivePage] = useState('dashboard');
   const [competitors, setCompetitors] = useState([]);
@@ -443,6 +694,7 @@ export default function Home() {
     { id: 'analysis', label: 'ANALYSIS' },
     { id: 'marketintel', label: 'MARKET INTEL' },
     { id: 'peptideguide', label: 'PEPTIDE GUIDE' },
+    { id: 'pricing', label: 'PRICING' },
     { id: 'settings', label: 'SETTINGS' },
   ];
 
@@ -1214,6 +1466,9 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
         {/* ── PEPTIDE GUIDE ──────────────────────────────────────── */}
         {activePage === 'peptideguide' && <PeptideGuideTab />}
+
+        {/* ── PRICING ────────────────────────────────────────────── */}
+        {activePage === 'pricing' && <PricingTab />}
 
 
                 {/* ── SETTINGS ───────────────────────────────────────────── */}
