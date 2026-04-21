@@ -14,14 +14,14 @@ function categorize(name) {
 }
 
 const CATEGORY_COLORS = {
-  'Weight Loss':          { bg: '#1a2a1a', border: '#4a9a4a', text: '#7acc7a' },
-  'Muscle Growth':        { bg: '#1a1a2a', border: '#4a4a9a', text: '#7a7acc' },
-  'Recovery / Healing':   { bg: '#2a1a1a', border: '#9a4a4a', text: '#cc7a7a' },
-  'Anti-Aging':           { bg: '#2a2a1a', border: '#9a9a4a', text: '#cccc7a' },
-  'Cognitive / Focus':    { bg: '#1a2a2a', border: '#4a9a9a', text: '#7acccc' },
-  'Hormonal / Metabolic': { bg: '#2a1a2a', border: '#9a4a9a', text: '#cc7acc' },
-  'Supplies':             { bg: '#222', border: '#555', text: '#aaa' },
-  'Other':                { bg: '#222', border: '#555', text: '#aaa' },
+  'Weight Loss':          { bg: '#1e0a28', border: '#e0b0ff', text: '#e0b0ff' },
+  'Muscle Growth':        { bg: '#0a1428', border: '#b0d4ff', text: '#b0d4ff' },
+  'Recovery / Healing':   { bg: '#0a1e14', border: '#b0ffd8', text: '#b0ffd8' },
+  'Anti-Aging':           { bg: '#281e0a', border: '#ffe0a0', text: '#ffe0a0' },
+  'Cognitive / Focus':    { bg: '#0a2222', border: '#a0f0e8', text: '#a0f0e8' },
+  'Hormonal / Metabolic': { bg: '#280a1e', border: '#ffb0e0', text: '#ffb0e0' },
+  'Supplies':             { bg: '#141414', border: '#d8d8d8', text: '#d8d8d8' },
+  'Other':                { bg: '#141414', border: '#d8d8d8', text: '#d8d8d8' },
 };
 
 function parsePrice(str) {
@@ -358,9 +358,20 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
       {/* Sidebar */}
       <style>{`
+        *, *::before, *::after { font-family: 'Century Gothic', 'Trebuchet MS', sans-serif !important; }
+        body { font-size: 14px; }
         .nav-btn { transition: background 0.15s, color 0.15s; }
         .nav-btn:hover { background: rgba(232,168,184,0.18) !important; color: #f5c8d4 !important; }
         .nav-btn.active { background: #f5e6e0 !important; color: #181818 !important; }
+        .aria-btn:hover { background: rgba(255,255,255,0.08) !important; border-color: #888 !important; color: #fff !important; }
+        .aria-btn-primary:hover { background: #fff !important; color: #111 !important; }
+        .aria-row:hover { background: #1e1e1e !important; }
+        .aria-card:hover { border-color: #3a3a3a !important; }
+        a:hover { color: #f5c8d4 !important; opacity: 1 !important; }
+        select { font-family: 'Century Gothic', 'Trebuchet MS', sans-serif !important; }
+        input { font-family: 'Century Gothic', 'Trebuchet MS', sans-serif !important; }
+        button { font-family: 'Century Gothic', 'Trebuchet MS', sans-serif !important; }
+        th, td { font-family: 'Century Gothic', 'Trebuchet MS', sans-serif !important; }
       `}</style>
       <aside style={{ width: '260px', minWidth: '260px', background: '#141414', padding: '0', borderRight: '1px solid #252525', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', flexShrink: 0 }}>
 
@@ -463,7 +474,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
             {/* Competitor rankings */}
             {competitors.length === 0 ? (
-              <div style={CARD}>
+              <div className="aria-card" style={CARD}>
                 <h3 style={H3}>GET STARTED</h3>
                 <ol style={{ marginLeft: '20px', color: '#aaa', fontSize: '14px', lineHeight: '2.4' }}>
                   <li>Go to <strong style={{ color: '#f5e6e0' }}>Competitors</strong> → Add competitor URLs</li>
@@ -472,7 +483,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 </ol>
               </div>
             ) : (
-              <div style={CARD}>
+              <div className="aria-card" style={CARD}>
                 <h3 style={H3}>COMPETITOR RANKINGS</h3>
                 <p style={{ fontSize: '14px', color: '#777', marginBottom: '14px' }}>Scored on product coverage (40pts) + lowest pricing (60pts)</p>
 
@@ -539,12 +550,12 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             <h1 style={H1}>COMPETITORS</h1>
             <p style={SUB}>Manage and scan your tracked competitors</p>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
-              <button style={BTN_PRIMARY} onClick={() => setShowModal(true)}>+ ADD COMPETITOR</button>
-              <button style={BTN} onClick={handleScrapeAll}>SCAN ALL</button>
+              <button className="aria-btn-primary" style={BTN_PRIMARY} onClick={() => setShowModal(true)}>+ ADD COMPETITOR</button>
+              <button className="aria-btn" style={BTN} onClick={handleScrapeAll}>SCAN ALL</button>
             </div>
 
             {competitors.length === 0 && (
-              <div style={CARD}><p style={P}>No competitors yet. Click "+ Add Competitor" to get started.</p></div>
+              <div className="aria-card" style={CARD}><p style={P}>No competitors yet. Click "+ Add Competitor" to get started.</p></div>
             )}
 
             <div style={{ display: 'grid', gap: '12px' }}>
@@ -553,7 +564,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 const products = result?.insights?.[0]?.items || [];
                 const competitorChanges = priceChanges.filter(ch => ch.competitor === c.name);
                 return (
-                  <div key={c.id} style={CARD}>
+                  <div key={c.id} className="aria-card" style={CARD}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div>
                         <h3 style={{ ...H3, margin: 0 }}>{c.name}</h3>
@@ -630,8 +641,8 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     </div>
                   ))}
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button style={BTN} onClick={() => setShowModal(false)}>CANCEL</button>
-                    <button style={BTN_PRIMARY} onClick={handleAddCompetitor}>ADD</button>
+                    <button className="aria-btn" style={BTN} onClick={() => setShowModal(false)}>CANCEL</button>
+                    <button className="aria-btn-primary" style={BTN_PRIMARY} onClick={handleAddCompetitor}>ADD</button>
                   </div>
                 </div>
               </div>
@@ -658,7 +669,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             </div>
 
             {comparison.length === 0 && (
-              <div style={CARD}>
+              <div className="aria-card" style={CARD}>
                 <h3 style={H3}>NO DATA YET</h3>
                 <p style={P}>Scan at least one competitor to see analysis.</p>
                 <button style={{ ...BTN_PRIMARY, marginTop: '12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
@@ -757,7 +768,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                       return 0;
                     });
                   return (
-                    <div style={CARD}>
+                    <div className="aria-card" style={CARD}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
                         <h3 style={{ ...H3, margin: 0 }}>PRODUCT COMPARISON TABLE</h3>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -825,7 +836,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             <p style={SUB}>Competitive signals across all tracked sites</p>
 
             {competitors.length === 0 ? (
-              <div style={CARD}>
+              <div className="aria-card" style={CARD}>
                 <h3 style={H3}>NO COMPETITORS YET</h3>
                 <p style={P}>Add competitors to see market intel.</p>
                 <button style={{ ...BTN_PRIMARY, marginTop: '12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
@@ -963,7 +974,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
           <div>
             <h1 style={H1}>SETTINGS</h1>
             <p style={SUB}>Configure your ARIA platform</p>
-            <div style={CARD}>
+            <div className="aria-card" style={CARD}>
               <h3 style={H3}>DATA MANAGEMENT</h3>
               <p style={P}>All data is saved in your browser and survives page refreshes. Includes competitors, scan results, and price change history.</p>
               <button style={{ ...BTN, marginTop: '12px', borderColor: '#cc7a7a', color: '#cc7a7a' }} onClick={() => {
@@ -973,7 +984,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 }
               }}>CLEAR ALL DATA</button>
             </div>
-            <div style={CARD}>
+            <div className="aria-card" style={CARD}>
               <h3 style={H3}>HOW SCORING WORKS</h3>
               <p style={P}>Each competitor is scored out of 100 based on two factors:</p>
               <div style={{ display: 'grid', gap: '8px', marginTop: '8px' }}>
@@ -987,7 +998,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 </div>
               </div>
             </div>
-            <div style={CARD}>
+            <div className="aria-card" style={CARD}>
               <h3 style={H3}>ABOUT ARIA</h3>
               <p style={P}>ARIA — Adaptive Research Intelligence Assistant</p>
               <p style={{ ...P, color: '#777' }}>VERSION: 2.1 | Price Change Detection | Competitor Scoring</p>
@@ -1000,12 +1011,13 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
   );
 }
 
-const H1 = { fontSize: '28px', fontWeight: '400', marginBottom: '6px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' };
-const SUB = { color: '#888', marginBottom: '28px', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '22px', marginBottom: '16px' };
-const H3 = { fontSize: '14px', fontWeight: '600', margin: '0 0 14px 0', color: '#bbb', textTransform: 'uppercase', letterSpacing: '1px' };
-const P = { color: '#bbb', lineHeight: '1.7', marginBottom: '10px', fontSize: '14px' };
-const STAT_CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '18px' };
-const STAT_LABEL = { fontSize: '10px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' };
-const BTN = { padding: '10px 20px', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', background: 'transparent', color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit' };
-const BTN_PRIMARY = { padding: '10px 20px', border: '1px solid #f5e6e0', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', background: '#f5e6e0', color: '#181818', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', fontWeight: '500' };
+const FF = "'Century Gothic', 'Trebuchet MS', sans-serif";
+const H1 = { fontSize: '28px', fontWeight: '600', marginBottom: '6px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px', fontFamily: FF };
+const SUB = { color: '#888', marginBottom: '28px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FF };
+const CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '22px', marginBottom: '16px', transition: 'border-color 0.15s' };
+const H3 = { fontSize: '11px', fontWeight: '600', margin: '0 0 14px 0', color: '#bbb', textTransform: 'uppercase', letterSpacing: '1.5px', fontFamily: FF };
+const P = { color: '#bbb', lineHeight: '1.7', marginBottom: '10px', fontSize: '14px', fontFamily: FF };
+const STAT_CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '18px', fontFamily: FF };
+const STAT_LABEL = { fontSize: '10px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600', fontFamily: FF };
+const BTN = { padding: '10px 20px', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', background: 'transparent', color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FF, transition: 'all 0.15s' };
+const BTN_PRIMARY = { padding: '10px 20px', border: '1px solid #f5e6e0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', background: '#f5e6e0', color: '#181818', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: FF, fontWeight: '600', transition: 'all 0.15s' };
