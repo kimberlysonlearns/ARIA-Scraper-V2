@@ -1,101 +1,71 @@
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
-
   const baseUrl = url.replace(/\/$/, '').split('/').slice(0, 3).join('/');
 
   try {
     const html = await fetchHTML(url);
-    if (!html) {
-      return res.status(200).json({ success: false, error: 'Could not access this website.', url });
-    }
+    if (!html) return res.status(200).json({ success: false, error: 'Could not access this website.', url });
 
-    const title = decodeHTML(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || '');
+    const title = clean(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
 
-    // Method 1: WooCommerce REST API
-    const wooProducts = await tryWooCommerceAPI(baseUrl);
+    // Method 1: WooCommerce API
+    const wooProducts = await tryWooAPI(baseUrl);
     if (wooProducts.length > 0) {
       return res.status(200).json({
-        success: true, url, title, method: 'WooCommerce API',
+        success: true, url, title,
         insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: wooProducts }],
         scrapedAt: new Date().toISOString(),
       });
     }
 
     // Method 2: JSON-LD
-    const jsonLdProducts = extractJSONLD(html);
-    if (jsonLdProducts.length > 0) {
+    const jsonProducts = extractJSONLD(html);
+    if (jsonProducts.length > 0) {
       return res.status(200).json({
-        success: true, url, title, method: 'Structured Data',
-        insights: [
-          { type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: jsonLdProducts },
-          ...extractGeneralInsights(html),
-        ],
+        success: true, url, title,
+        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: jsonProducts }, ...generalInsights(html)],
         scrapedAt: new Date().toISOString(),
       });
     }
 
-    // Method 3: Direct HTML product extraction
-    const directProducts = extractDirectProducts(html);
-    if (directProducts.length > 0) {
+    // Method 3: Convert entire page to plain text first, then extract
+    const products = extractFromPlainText(html);
+    if (products.length > 0) {
       return res.status(200).json({
-        success: true, url, title, method: 'Direct HTML',
-        insights: [
-          { type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: directProducts },
-          ...extractGeneralInsights(html),
-        ],
+        success: true, url, title,
+        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: products }, ...generalInsights(html)],
         scrapedAt: new Date().toISOString(),
       });
     }
 
-    // Method 4: General fallback
-    const generalInsights = extractGeneralInsights(html);
-    const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{10,300})["']/i)?.[1]?.trim() || '';
-    if (metaDesc) generalInsights.push({ type: 'SITE DESCRIPTION', tag: 'INFO', items: [decodeHTML(metaDesc)] });
+    // Fallback
+    const gi = generalInsights(html);
+    const meta = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{10,300})["']/i)?.[1];
+    if (meta) gi.push({ type: 'SITE DESCRIPTION', tag: 'INFO', items: [clean(meta)] });
+    return res.status(200).json({ success: true, url, title, insights: gi, scrapedAt: new Date().toISOString() });
 
-    return res.status(200).json({
-      success: true, url, title, method: 'General',
-      insights: generalInsights,
-      scrapedAt: new Date().toISOString(),
-    });
-
-  } catch (error) {
-    return res.status(200).json({ success: false, error: error.message || 'Failed to fetch', url });
+  } catch (e) {
+    return res.status(200).json({ success: false, error: e.message || 'Failed', url });
   }
 }
 
-// Decode HTML entities
-function decodeHTML(str) {
+// Clean HTML entities
+function clean(str) {
   if (!str) return '';
   return str
-    .replace(/&#36;/g, '$')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#8211;/g, '—')
-    .replace(/&#8212;/g, '—')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
-    .replace(/&\w+;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/&#36;/g, '$').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '-').replace(/&#8212;/g, '-').replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
+    .replace(/&\w+;/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// Fetch HTML
 async function fetchHTML(url) {
   try {
     const r = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html' },
       signal: AbortSignal.timeout(12000),
     });
     if (!r.ok) return null;
@@ -103,39 +73,33 @@ async function fetchHTML(url) {
   } catch { return null; }
 }
 
-// WooCommerce REST API
-async function tryWooCommerceAPI(baseUrl) {
+async function tryWooAPI(baseUrl) {
   try {
     const r = await fetch(`${baseUrl}/wp-json/wc/v3/products?per_page=50&status=publish`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000),
+      headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) return [];
-    const products = await r.json();
-    if (!Array.isArray(products) || products.length === 0) return [];
-    return products.map(p => {
-      const price = p.sale_price || p.price || p.regular_price || '';
-      const weight = p.weight ? `${p.weight}` : '';
-      return `${p.name}${weight ? ` ${weight}` : ''}${price ? ` — $${price}` : ''}`;
+    const p = await r.json();
+    if (!Array.isArray(p) || !p.length) return [];
+    return p.map(x => {
+      const price = x.sale_price || x.price || x.regular_price || '';
+      const weight = x.weight ? `${x.weight}` : '';
+      return clean(`${x.name}${weight ? ' — ' + weight : ''}${price ? ' — $' + price : ''}`);
     }).filter(Boolean);
   } catch { return []; }
 }
 
-// JSON-LD
 function extractJSONLD(html) {
   const results = [];
-  const blocks = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
-  blocks.forEach(block => {
+  (html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || []).forEach(b => {
     try {
-      const json = JSON.parse(block.replace(/<\/?script[^>]*>/gi, ''));
-      const items = Array.isArray(json) ? json : [json];
-      items.forEach(item => {
-        const nodes = item['@graph'] ? item['@graph'] : [item];
-        nodes.forEach(node => {
-          if (node['@type'] === 'Product' && node.name) {
-            const price = node.offers?.price || node.offers?.lowPrice || '';
-            const currency = node.offers?.priceCurrency || '';
-            results.push(decodeHTML(`${node.name}${price ? ` — $${price} ${currency}` : ''}`).trim());
+      const j = JSON.parse(b.replace(/<\/?script[^>]*>/gi, ''));
+      const items = Array.isArray(j) ? j : [j];
+      items.forEach(i => {
+        (i['@graph'] || [i]).forEach(n => {
+          if (n['@type'] === 'Product' && n.name) {
+            const price = n.offers?.price || n.offers?.lowPrice || '';
+            results.push(clean(`${n.name}${price ? ' — $' + price : ''}`));
           }
         });
       });
@@ -144,91 +108,95 @@ function extractJSONLD(html) {
   return results;
 }
 
-// Direct product extraction — finds name + dosage + price
-function extractDirectProducts(html) {
-  const results = [];
-  const skipWords = ['copyright', 'shipping', 'faq', 'why choose', 'contact', 'choose us', 'products', 'shipping and delivery', 'home', 'evolve'];
+// KEY FIX: Convert entire HTML to plain text first, then find product+dosage+price patterns
+function extractFromPlainText(html) {
+  // Step 1: Decode ALL HTML entities first
+  let text = html
+    .replace(/&#36;/g, '$').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '-').replace(/&#8212;/g, '-').replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
+    .replace(/&\w+;/g, ' ');
 
-  // Strip scripts and styles
-  const cleaned = html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-
-  // Find all h2/h3/h4 headings — product names live here
-  const headingRegex = /<h[234][^>]*>([\s\S]*?)<\/h[234]>/gi;
-  let match;
-  const headings = [];
-  while ((match = headingRegex.exec(cleaned)) !== null) {
-    const text = decodeHTML(match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
-    if (
-      text.length > 2 &&
-      text.length < 100 &&
-      !text.includes('{') &&
-      !text.includes('function') &&
-      !skipWords.some(w => text.toLowerCase().includes(w))
-    ) {
-      headings.push({ text, index: match.index });
-    }
-  }
-
-  // For each product heading, look for dosage and price nearby
-  headings.forEach(heading => {
-    // Get the next 1000 characters after the heading
-    // IMPORTANT: decode HTML entities FIRST (so &#36; becomes $) THEN strip tags
-    const nearby = cleaned.substring(heading.index, heading.index + 1000);
-    const nearbyDecoded = decodeHTML(nearby);
-    const nearbyText = nearbyDecoded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-
-    // Extract dosage — e.g. "10 mg", "10ml", "12.5 mg / 50 Tablets", "30 ml"
-    const dosageMatch = nearbyText.match(
-      /(\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|capsules?|vials?|tabs?)(?:\s*\/\s*\d+\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|capsules?|vials?|tabs?))?(?:\s*\/\s*\d+\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|capsules?|vials?))?)/i
-    );
-
-    // Extract price — e.g. "$90.00"
-    const priceMatch = nearbyText.match(/\$[\d,]+(?:\.\d{2})?/);
-
-    const dosage = dosageMatch?.[0]?.trim() || '';
-    const price = priceMatch?.[0]?.trim() || '';
-
-    if (price) {
-      // Format: "Product Name — 10 mg — $90.00"
-      const entry = [heading.text, dosage, price].filter(Boolean).join(' — ');
-      results.push(entry);
-    } else if (dosage) {
-      // No price but has dosage
-      results.push(`${heading.text} — ${dosage}`);
-    } else {
-      // Just the name if nothing else found
-      results.push(heading.text);
-    }
-  });
-
-  // Remove duplicates and limit
-  return [...new Set(results)].filter(Boolean).slice(0, 25);
-}
-
-// General insights fallback
-function extractGeneralInsights(html) {
-  const insights = [];
-  const cleanText = decodeHTML(html
+  // Step 2: Remove scripts, styles, nav, footer
+  text = text
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ').trim());
+    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, ' ')
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, ' ');
 
-  // All prices
-  const prices = [...new Set((cleanText.match(/\$[\d,]+(?:\.\d{2})?/g) || []))].slice(0, 10);
-  if (prices.length > 0) insights.push({ type: 'ALL PRICES FOUND', tag: 'PRICING', items: prices });
+  // Step 3: Strip remaining tags
+  text = text.replace(/<[^>]+>/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
-  // Headings
-  const headingRegex = /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi;
-  const headings = [];
-  let hm;
-  while ((hm = headingRegex.exec(html)) !== null && headings.length < 8) {
-    const text = decodeHTML(hm[1].replace(/<[^>]+>/g, '').trim());
-    if (text.length > 3 && text.length < 80 && !text.includes('{')) headings.push(text);
+  // Step 4: Split into lines
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  const results = [];
+  const skipWords = ['copyright', 'shipping', 'faq', 'why choose', 'contact', 'home', 'cart', 'add to cart', 'order now', 'documentation', 'quantity', 'out of stock', 'please contact', 'see our products', 'questions', 'how should', 'how do i', 'how much', 'are your', 'all products listed', 'all orders', 'all sales', 'evolve', 'choose us', 'choose', 'now available', 'subscribe', 'dismiss', 'follow'];
+
+  const dosagePattern = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:\s*\/\s*\d+\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|vials?|tabs?))?(?:\s*\/?\s*\d+\s*(?:tablets?|caps?|vials?|tabs?))?$/i;
+  const pricePattern = /^\$[\d,]+(?:\.\d{2})?$/;
+  const productPattern = /^[A-Z][A-Za-z0-9\s\-()./+]{2,60}$/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip noise
+    if (skipWords.some(w => line.toLowerCase().includes(w))) continue;
+    if (line.length < 3 || line.length > 80) continue;
+    if (line.includes('{') || line.includes('function') || line.includes('http')) continue;
+
+    // Check if this line looks like a product name
+    if (productPattern.test(line) && line === line.replace(/[a-z]/g, s => s)) {
+      // ALL CAPS or mixed — likely a product name
+      // Look ahead for dosage and price in the next 6 lines
+      let dosage = '';
+      let price = '';
+
+      for (let j = i + 1; j < Math.min(i + 7, lines.length); j++) {
+        const next = lines[j].trim();
+        if (!dosage && dosagePattern.test(next)) dosage = next;
+        if (!price && pricePattern.test(next)) price = next;
+        // Stop if we hit another product name
+        if (j > i + 1 && productPattern.test(next) && next === next.replace(/[a-z]/g, s => s) && next.length > 3) break;
+      }
+
+      if (price || dosage) {
+        const parts = [line, dosage, price].filter(Boolean);
+        results.push(parts.join(' — '));
+      }
+    }
   }
-  if (headings.length > 0) insights.push({ type: 'PAGE SECTIONS', tag: 'HOMEPAGE', items: headings });
 
+  // If the above didn't work, try a looser approach — find any line with a $ nearby
+  if (results.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (skipWords.some(w => line.toLowerCase().includes(w))) continue;
+      if (line.length < 3 || line.length > 60) continue;
+      if (!line.match(/^[A-Za-z]/)) continue;
+
+      // Look ahead for a price
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        if (pricePattern.test(lines[j])) {
+          results.push(`${line} — ${lines[j]}`);
+          break;
+        }
+      }
+    }
+  }
+
+  return [...new Set(results)].slice(0, 25);
+}
+
+function generalInsights(html) {
+  const insights = [];
+  // Decode first then extract prices
+  const decoded = html
+    .replace(/&#36;/g, '$').replace(/&amp;/g, '&')
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c));
+  const text = decoded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const prices = [...new Set((text.match(/\$[\d,]+(?:\.\d{2})?/g) || []))].slice(0, 10);
+  if (prices.length > 0) insights.push({ type: 'ALL PRICES FOUND', tag: 'PRICING', items: prices });
   return insights;
 }
