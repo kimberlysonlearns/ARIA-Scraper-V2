@@ -716,6 +716,44 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   </div>
                 )}
 
+                {/* Key insights */}
+                <div style={{ ...CARD, marginBottom: '16px' }}>
+                  <h3 style={H3}>KEY INSIGHTS</h3>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {cheapestSite && (
+                      <div style={{ padding: '12px 14px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: '6px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                        <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#b0ffd8', marginTop: '6px' }} />
+                        <p style={{ fontSize: '13px', color: '#ccc', margin: 0, lineHeight: '1.6' }}><span style={{ color: '#f5e6e0', fontWeight: '600' }}>Cheapest overall:</span> {cheapestSite} has the lowest average pricing across all tracked products.</p>
+                      </div>
+                    )}
+                    {(() => {
+                      const overpriced = comparison.filter(p => {
+                        const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
+                        if (prices.length < 2) return false;
+                        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+                        return Math.max(...prices) > avg * 1.3;
+                      });
+                      return overpriced.length > 0 ? (
+                        <div style={{ padding: '12px 14px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: '6px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                          <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#ffb0e0', marginTop: '6px' }} />
+                          <p style={{ fontSize: '13px', color: '#ccc', margin: 0, lineHeight: '1.6' }}><span style={{ color: '#f5e6e0', fontWeight: '600' }}>Price gaps detected:</span> {overpriced.slice(0, 3).map(p => p.name).join(', ')} show 30%+ variation across sites.</p>
+                        </div>
+                      ) : null;
+                    })()}
+                    {(() => {
+                      const cats = {};
+                      comparison.forEach(p => { cats[p.category] = (cats[p.category] || 0) + 1; });
+                      const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+                      return top ? (
+                        <div style={{ padding: '12px 14px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: '6px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                          <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#b0d4ff', marginTop: '6px' }} />
+                          <p style={{ fontSize: '13px', color: '#ccc', margin: 0, lineHeight: '1.6' }}><span style={{ color: '#f5e6e0', fontWeight: '600' }}>Most competitive category:</span> {top[0]} with {top[1]} products tracked.</p>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
+
                 {/* Comparison table */}
                 {(() => {
                   const categories = ['ALL', ...new Set(comparison.map(p => p.category))];
@@ -847,15 +885,15 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               const COL_HEAD = { padding: '10px 14px', fontSize: '11px', fontFamily: F, color: '#bbb', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', borderLeft: '1px solid #2a2a2a', width: colW, background: '#1a1a1a' };
               const CELL = { padding: '14px 14px', fontSize: '13px', fontFamily: F, color: '#ddd', borderLeft: '1px solid #222', borderTop: '1px solid #222', verticalAlign: 'top', width: colW };
 
-              // Pastel pill colours — soft, light backgrounds with muted text
+              // Variant 2 — dark bg, neon pastel border + text (matches rest of app)
               const PILL_STYLES = {
-                green:  { bg: '#d4edda', border: '#a8d5b5', color: '#2d6a4f' },
-                amber:  { bg: '#fde8c8', border: '#f5c98a', color: '#7d4e0f' },
-                blue:   { bg: '#d0e4f7', border: '#a0c4e8', color: '#1a4a7a' },
-                teal:   { bg: '#c8eee8', border: '#8ad5c8', color: '#0f5a4a' },
-                pink:   { bg: '#f7d6e0', border: '#e8a8b8', color: '#7a2a3a' },
-                purple: { bg: '#e0d4f0', border: '#c0a8e0', color: '#4a2a7a' },
-                gray:   { bg: '#e8e8e8', border: '#c8c8c8', color: '#4a4a4a' },
+                green:  { bg: '#0a1e14', border: '#b0ffd8', color: '#b0ffd8' },
+                amber:  { bg: '#281e0a', border: '#ffe0a0', color: '#ffe0a0' },
+                blue:   { bg: '#0a1428', border: '#b0d4ff', color: '#b0d4ff' },
+                teal:   { bg: '#0a2222', border: '#a0f0e8', color: '#a0f0e8' },
+                pink:   { bg: '#280a1e', border: '#ffb0e0', color: '#ffb0e0' },
+                purple: { bg: '#1e0a28', border: '#e0b0ff', color: '#e0b0ff' },
+                gray:   { bg: '#141414', border: '#d8d8d8', color: '#d8d8d8' },
               };
 
               const Pill = ({ text, type }) => {
@@ -865,7 +903,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
               const None = () => <span style={{ color: '#555', fontSize: '13px', fontFamily: F }}>—</span>;
               const PlainText = ({ text, color }) => <span style={{ fontSize: '13px', fontFamily: F, color: color || '#ccc', lineHeight: '1.6' }}>{text}</span>;
-              const CodePill = ({ text }) => <span style={{ fontFamily: 'monospace', fontSize: '12px', padding: '3px 10px', background: '#d0eee8', border: '1px solid #8ad0c0', borderRadius: '6px', color: '#0f5a4a', fontWeight: '600' }}>{text}</span>;
+              const CodePill = ({ text }) => <span style={{ fontFamily: 'monospace', fontSize: '11px', padding: '4px 10px', background: '#0a2222', border: '1px solid #a0f0e8', borderRadius: '6px', color: '#a0f0e8', fontWeight: '600', wordBreak: 'break-word', display: 'inline-block', lineHeight: '1.5' }}>{text}</span>;
 
               const SectionTable = ({ title, rows }) => (
                 <div style={SEC}>
@@ -892,7 +930,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               return (
                 <>
                   <SectionTable title="Shipping" rows={[
-                    { label: 'Free over', render: (k) => k.freeShipping ? <Pill text={`Free over $${k.freeShipping}`} type="green" /> : <None /> },
+                    { label: 'Free over', render: (k) => k.freeShipping ? <Pill text={`Free over ${k.freeShipping}`} type="green" /> : <None /> },
                     { label: 'Flat rate / other', render: (k) => k.flatShipping ? <PlainText text={k.flatShipping} /> : <None /> },
                     { label: 'Dispatch speed', render: (k) => k.dispatchSpeed ? <Pill text={k.dispatchSpeed} type="teal" /> : <None /> },
                   ]} />
