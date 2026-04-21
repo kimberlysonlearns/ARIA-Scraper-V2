@@ -14,91 +14,137 @@ function categorize(name) {
 }
 
 const CATEGORY_COLORS = {
-  'Weight Loss':           { bg: '#1a2a1a', border: '#4a9a4a', text: '#7acc7a' },
-  'Muscle Growth':         { bg: '#1a1a2a', border: '#4a4a9a', text: '#7a7acc' },
-  'Recovery / Healing':    { bg: '#2a1a1a', border: '#9a4a4a', text: '#cc7a7a' },
-  'Anti-Aging':            { bg: '#2a2a1a', border: '#9a9a4a', text: '#cccc7a' },
-  'Cognitive / Focus':     { bg: '#1a2a2a', border: '#4a9a9a', text: '#7acccc' },
-  'Hormonal / Metabolic':  { bg: '#2a1a2a', border: '#9a4a9a', text: '#cc7acc' },
-  'Supplies':              { bg: '#222222', border: '#555555', text: '#aaaaaa' },
-  'Other':                 { bg: '#222222', border: '#555555', text: '#aaaaaa' },
+  'Weight Loss':          { bg: '#1a2a1a', border: '#4a9a4a', text: '#7acc7a' },
+  'Muscle Growth':        { bg: '#1a1a2a', border: '#4a4a9a', text: '#7a7acc' },
+  'Recovery / Healing':   { bg: '#2a1a1a', border: '#9a4a4a', text: '#cc7a7a' },
+  'Anti-Aging':           { bg: '#2a2a1a', border: '#9a9a4a', text: '#cccc7a' },
+  'Cognitive / Focus':    { bg: '#1a2a2a', border: '#4a9a9a', text: '#7acccc' },
+  'Hormonal / Metabolic': { bg: '#2a1a2a', border: '#9a4a9a', text: '#cc7acc' },
+  'Supplies':             { bg: '#222', border: '#555', text: '#aaa' },
+  'Other':                { bg: '#222', border: '#555', text: '#aaa' },
 };
 
-// ── Parse price string to float ──────────────────────────────────────
-function parsePrice(priceStr) {
-  if (!priceStr) return null;
-  const match = String(priceStr).match(/[\d,]+(?:\.\d{2})?/);
-  if (!match) return null;
-  return parseFloat(match[0].replace(/,/g, ''));
+function parsePrice(str) {
+  if (!str) return null;
+  const m = String(str).match(/[\d,]+(?:\.\d{2})?/);
+  return m ? parseFloat(m[0].replace(/,/g, '')) : null;
 }
 
-// ── Build comparison table from all scan results ─────────────────────
+// ── Build product comparison map ─────────────────────────────────────
 function buildComparison(competitors, scrapeResults) {
-  const map = {}; // normalizedName -> { name, category, sites: { competitorName: price } }
-
+  const map = {};
   competitors.forEach(c => {
     const result = scrapeResults[c.id];
     if (!result?.success) return;
     const items = result.insights?.[0]?.items || [];
     items.forEach(item => {
-      // Parse "Product Name — 10mg — $48.00" or "Product Name — $48.00"
       const parts = item.split(' — ');
       const name = parts[0]?.trim();
       if (!name || name.length < 2) return;
-      // Find price part
       const pricePart = parts.find(p => p.includes('$'));
       const price = pricePart?.match(/\$[\d,.]+/)?.[0] || '';
       const priceVal = parsePrice(price);
       const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!map[key]) {
-        map[key] = { name, category: categorize(name), sites: {} };
-      }
+      if (!map[key]) map[key] = { name, category: categorize(name), sites: {} };
       if (price) map[key].sites[c.name] = { price, value: priceVal };
     });
   });
-
   return Object.values(map).filter(p => Object.keys(p.sites).length > 0);
+}
+
+// ── Score a competitor 0–100 ─────────────────────────────────────────
+function scoreCompetitor(competitorName, comparison, totalCompetitors) {
+  if (!comparison.length) return 0;
+  // Coverage score (40pts): how many products do they carry vs total unique products
+  const coverage = comparison.filter(p => p.sites[competitorName]).length;
+  const coverageScore = Math.round((coverage / comparison.length) * 40);
+  // Pricing score (60pts): how often are they the cheapest option
+  let winsCount = 0;
+  let eligibleCount = 0;
+  comparison.forEach(p => {
+    if (!p.sites[competitorName]) return;
+    const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
+    if (prices.length < 2) return;
+    eligibleCount++;
+    const minPrice = Math.min(...prices);
+    if (p.sites[competitorName].value <= minPrice) winsCount++;
+  });
+  const pricingScore = eligibleCount > 0 ? Math.round((winsCount / eligibleCount) * 60) : 0;
+  return coverageScore + pricingScore;
+}
+
+// ── Detect price changes between scans ───────────────────────────────
+function detectChanges(prevResults, currentResults, competitors) {
+  const changes = [];
+  competitors.forEach(c => {
+    const prev = prevResults[c.id];
+    const curr = currentResults[c.id];
+    if (!prev?.success || !curr?.success) return;
+    const prevItems = {};
+    (prev.insights?.[0]?.items || []).forEach(item => {
+      const parts = item.split(' — ');
+      const name = parts[0]?.trim();
+      const pricePart = parts.find(p => p.includes('$'));
+      if (name && pricePart) prevItems[name.toLowerCase()] = { name, price: pricePart, value: parsePrice(pricePart) };
+    });
+    (curr.insights?.[0]?.items || []).forEach(item => {
+      const parts = item.split(' — ');
+      const name = parts[0]?.trim();
+      const pricePart = parts.find(p => p.includes('$'));
+      if (!name || !pricePart) return;
+      const key = name.toLowerCase();
+      const currVal = parsePrice(pricePart);
+      const prevEntry = prevItems[key];
+      if (!prevEntry || !prevEntry.value || !currVal) return;
+      if (Math.abs(currVal - prevEntry.value) >= 0.01) {
+        const pct = Math.round(((currVal - prevEntry.value) / prevEntry.value) * 100);
+        changes.push({
+          competitor: c.name,
+          product: name,
+          from: prevEntry.price,
+          to: pricePart,
+          fromVal: prevEntry.value,
+          toVal: currVal,
+          pct,
+          direction: currVal < prevEntry.value ? 'down' : 'up',
+          detectedAt: curr.scrapedAt,
+        });
+      }
+    });
+  });
+  return changes;
 }
 
 export default function Home() {
   const [activePage, setActivePage] = useState('dashboard');
   const [competitors, setCompetitors] = useState([]);
-  const [alerts, setAlerts] = useState([]);
+  const [scrapeResults, setScrapeResults] = useState({});
+  const [prevScrapeResults, setPrevScrapeResults] = useState({});
+  const [priceChanges, setPriceChanges] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: '', website: '' });
   const [scraping, setScraping] = useState({});
-  const [scrapeResults, setScrapeResults] = useState({});
   const [analysisFilter, setAnalysisFilter] = useState('ALL');
   const [analysisSortBy, setAnalysisSortBy] = useState('name');
 
-  // ── Local storage persistence ────────────────────────────────────
+  // ── Persist to localStorage ──────────────────────────────────────
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('aria_competitors');
-      if (saved) setCompetitors(JSON.parse(saved));
-      const savedAlerts = localStorage.getItem('aria_alerts');
-      if (savedAlerts) setAlerts(JSON.parse(savedAlerts));
-      const savedResults = localStorage.getItem('aria_results');
-      if (savedResults) setScrapeResults(JSON.parse(savedResults));
+      const c = localStorage.getItem('aria_competitors'); if (c) setCompetitors(JSON.parse(c));
+      const r = localStorage.getItem('aria_results'); if (r) setScrapeResults(JSON.parse(r));
+      const p = localStorage.getItem('aria_prev_results'); if (p) setPrevScrapeResults(JSON.parse(p));
+      const ch = localStorage.getItem('aria_changes'); if (ch) setPriceChanges(JSON.parse(ch));
     } catch {}
   }, []);
 
-  useEffect(() => {
-    try { localStorage.setItem('aria_competitors', JSON.stringify(competitors)); } catch {}
-  }, [competitors]);
-
-  useEffect(() => {
-    try { localStorage.setItem('aria_alerts', JSON.stringify(alerts)); } catch {}
-  }, [alerts]);
-
-  useEffect(() => {
-    try { localStorage.setItem('aria_results', JSON.stringify(scrapeResults)); } catch {}
-  }, [scrapeResults]);
+  useEffect(() => { try { localStorage.setItem('aria_competitors', JSON.stringify(competitors)); } catch {} }, [competitors]);
+  useEffect(() => { try { localStorage.setItem('aria_results', JSON.stringify(scrapeResults)); } catch {} }, [scrapeResults]);
+  useEffect(() => { try { localStorage.setItem('aria_prev_results', JSON.stringify(prevScrapeResults)); } catch {} }, [prevScrapeResults]);
+  useEffect(() => { try { localStorage.setItem('aria_changes', JSON.stringify(priceChanges)); } catch {} }, [priceChanges]);
 
   const navItems = [
     { id: 'dashboard', label: 'DASHBOARD' },
     { id: 'competitors', label: 'COMPETITORS' },
-    { id: 'alerts', label: 'ALERTS' },
     { id: 'analysis', label: 'ANALYSIS' },
     { id: 'settings', label: 'SETTINGS' },
   ];
@@ -108,8 +154,7 @@ export default function Home() {
     if (!form.website.trim()) { alert('Please enter a website URL'); return; }
     let website = form.website.trim();
     if (!website.startsWith('http')) website = 'https://' + website;
-    const newComp = { id: Date.now(), name: form.name.toUpperCase(), website, items: 0 };
-    setCompetitors(prev => [...prev, newComp]);
+    setCompetitors(prev => [...prev, { id: Date.now(), name: form.name.toUpperCase(), website, items: 0 }]);
     setForm({ name: '', website: '' });
     setShowModal(false);
   };
@@ -118,6 +163,7 @@ export default function Home() {
     if (!window.confirm('Delete this competitor?')) return;
     setCompetitors(prev => prev.filter(c => c.id !== id));
     setScrapeResults(prev => { const n = { ...prev }; delete n[id]; return n; });
+    setPrevScrapeResults(prev => { const n = { ...prev }; delete n[id]; return n; });
   };
 
   const handleScrape = async (competitor) => {
@@ -132,11 +178,30 @@ export default function Home() {
         body: JSON.stringify({ url: competitor.website }),
       });
       const data = await r.json();
-      setScrapeResults(prev => ({ ...prev, [competitor.id]: { ...data, competitorName: competitor.name } }));
       if (data.success) {
-        const newAlert = { id: Date.now(), competitor: competitor.name, url: competitor.website, title: data.title, insights: data.insights, scrapedAt: data.scrapedAt };
-        setAlerts(prev => [newAlert, ...prev.slice(0, 49)]);
+        // Save current as previous before overwriting
+        setScrapeResults(prev => {
+          const oldResult = prev[competitor.id];
+          if (oldResult?.success) {
+            setPrevScrapeResults(pp => ({ ...pp, [competitor.id]: oldResult }));
+          }
+          const updated = { ...prev, [competitor.id]: { ...data, competitorName: competitor.name } };
+          // Detect changes
+          if (oldResult?.success) {
+            const newChanges = detectChanges(
+              { [competitor.id]: oldResult },
+              { [competitor.id]: { ...data, competitorName: competitor.name } },
+              [competitor]
+            );
+            if (newChanges.length > 0) {
+              setPriceChanges(pc => [...newChanges, ...pc].slice(0, 100));
+            }
+          }
+          return updated;
+        });
         setCompetitors(prev => prev.map(c => c.id === competitor.id ? { ...c, items: (c.items || 0) + 1 } : c));
+      } else {
+        setScrapeResults(prev => ({ ...prev, [competitor.id]: { ...data, competitorName: competitor.name } }));
       }
     } catch {
       setScrapeResults(prev => ({ ...prev, [competitor.id]: { success: false, error: 'Scan failed. Check URL and try again.' } }));
@@ -152,13 +217,13 @@ export default function Home() {
 
   const fmt = iso => iso ? new Date(iso).toLocaleString() : '';
   const comparison = buildComparison(competitors, scrapeResults);
-  const scannedCount = competitors.filter(c => scrapeResults[c.id]?.success).length;
-  const totalProducts = comparison.length;
   const allPrices = comparison.flatMap(p => Object.values(p.sites).map(s => s.value).filter(Boolean));
+
+  // Cheapest site by avg price
   const cheapestSite = (() => {
     const totals = {};
     comparison.forEach(p => Object.entries(p.sites).forEach(([site, { value }]) => {
-      if (value) { totals[site] = (totals[site] || []).concat(value); }
+      if (value) totals[site] = (totals[site] || []).concat(value);
     }));
     let best = null, bestAvg = Infinity;
     Object.entries(totals).forEach(([site, prices]) => {
@@ -168,8 +233,21 @@ export default function Home() {
     return best;
   })();
 
+  // Ranked competitors
+  const rankedCompetitors = [...competitors]
+    .filter(c => scrapeResults[c.id]?.success)
+    .map(c => ({
+      ...c,
+      score: scoreCompetitor(c.name, comparison, competitors.length),
+      productCount: (scrapeResults[c.id]?.insights?.[0]?.items || []).length,
+      lastScan: scrapeResults[c.id]?.scrapedAt,
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  const unscannedCompetitors = competitors.filter(c => !scrapeResults[c.id]?.success);
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Century Gothic', 'Trebuchet MS', sans-serif", background: '#111111', color: '#fff' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Century Gothic', 'Trebuchet MS', sans-serif", background: '#111', color: '#fff' }}>
 
       {/* Sidebar */}
       <aside style={{ width: '220px', minWidth: '220px', background: '#181818', padding: '20px', borderRight: '1px solid #2a2a2a', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', flexShrink: 0 }}>
@@ -177,81 +255,145 @@ export default function Home() {
           <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #f5e6e0, #e8a8b8)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '700', color: '#181818' }}>A</div>
           <div>
             <div style={{ fontSize: '16px', color: '#f5e6e0', letterSpacing: '2px', fontWeight: '500' }}>ARIA</div>
-            <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Platform</div>
+            <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px' }}>Intelligence Platform</div>
           </div>
         </div>
-        <div style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Navigation</div>
+        <div style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Navigation</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '24px' }}>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => setActivePage(item.id)} style={{ padding: '9px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', textAlign: 'left', fontFamily: 'inherit', background: activePage === item.id ? '#f5e6e0' : 'transparent', color: activePage === item.id ? '#181818' : '#888', fontWeight: activePage === item.id ? '600' : '400', letterSpacing: '0.5px' }}>
+            <button key={item.id} onClick={() => setActivePage(item.id)} style={{ padding: '9px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', textAlign: 'left', fontFamily: 'inherit', background: activePage === item.id ? '#f5e6e0' : 'transparent', color: activePage === item.id ? '#181818' : '#666', fontWeight: activePage === item.id ? '600' : '400', letterSpacing: '0.5px' }}>
               {item.label}
-              {item.id === 'alerts' && alerts.length > 0 && <span style={{ marginLeft: '8px', background: '#e8a8b8', color: '#181818', borderRadius: '99px', padding: '1px 6px', fontSize: '9px', fontWeight: '700' }}>{alerts.length}</span>}
+              {item.id === 'analysis' && priceChanges.length > 0 && (
+                <span style={{ marginLeft: '8px', background: '#cc7a7a', color: '#fff', borderRadius: '99px', padding: '1px 6px', fontSize: '9px', fontWeight: '700' }}>{priceChanges.length}</span>
+              )}
             </button>
           ))}
         </nav>
         <div style={{ flex: 1 }} />
-        <div style={{ borderTop: '1px solid #2a2a2a', paddingTop: '10px', fontSize: '9px', color: '#444' }}>
-          <p>v2.0</p><p style={{ marginTop: '2px' }}>Data survives refresh ✓</p>
+        <div style={{ borderTop: '1px solid #222', paddingTop: '10px', fontSize: '9px', color: '#444' }}>
+          <p>v2.1 — Price Change Detection</p>
         </div>
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, padding: '28px', background: '#111111', overflowX: 'hidden' }}>
+      <main style={{ flex: 1, padding: '28px', overflowX: 'hidden' }}>
 
         {/* ── DASHBOARD ──────────────────────────────────────────── */}
         {activePage === 'dashboard' && (
           <div>
             <h1 style={H1}>DASHBOARD</h1>
             <p style={SUB}>Competitive pricing intelligence at a glance</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+
+            {/* Stats row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '24px' }}>
               {[
                 { label: 'Competitors', value: competitors.length },
-                { label: 'Scanned', value: scannedCount },
-                { label: 'Products Tracked', value: totalProducts },
+                { label: 'Products Tracked', value: comparison.length },
+                { label: 'Price Changes', value: priceChanges.length },
                 { label: 'Cheapest Site', value: cheapestSite || '—', small: true },
               ].map((s, i) => (
                 <div key={i} style={STAT_CARD}>
                   <div style={STAT_LABEL}>{s.label}</div>
-                  <div style={{ ...STAT_VAL, fontSize: s.small ? '16px' : '32px', marginTop: '4px' }}>{s.value}</div>
+                  <div style={{ fontSize: s.small ? '14px' : '28px', fontWeight: s.small ? '500' : '400', color: '#f5e6e0', marginTop: '6px' }}>{s.value}</div>
                 </div>
               ))}
             </div>
 
-            {comparison.length > 0 && (
-              <div style={CARD}>
-                <h3 style={H3}>PRICE SNAPSHOT</h3>
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {comparison.slice(0, 8).map((p, i) => {
-                    const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
-                    const low = prices.length ? Math.min(...prices) : null;
-                    const high = prices.length ? Math.max(...prices) : null;
-                    const cat = CATEGORY_COLORS[p.category] || CATEGORY_COLORS['Other'];
-                    return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#181818', borderRadius: '6px', border: '1px solid #2a2a2a' }}>
-                        <div style={{ flex: 1 }}>
-                          <span style={{ fontSize: '13px', color: '#fff', fontWeight: '500' }}>{p.name}</span>
-                          <span style={{ marginLeft: '10px', fontSize: '10px', padding: '2px 8px', borderRadius: '99px', background: cat.bg, border: `1px solid ${cat.border}`, color: cat.text }}>{p.category}</span>
-                        </div>
-                        <div style={{ fontSize: '13px', color: '#f5e6e0', fontWeight: '500' }}>
-                          {low ? `$${low.toFixed(2)}` : '—'}
-                          {high && high !== low ? <span style={{ color: '#666', fontSize: '11px' }}> – ${high.toFixed(2)}</span> : null}
-                        </div>
-                      </div>
-                    );
-                  })}
+            {/* Price change banner */}
+            {priceChanges.length > 0 && (
+              <div style={{ background: '#1e1a14', border: '1px solid #7a5a2a', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '11px', color: '#ccaa7a', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+                  Recent Price Changes ({priceChanges.length})
                 </div>
-                {comparison.length > 8 && <p style={{ fontSize: '11px', color: '#555', marginTop: '12px' }}>+ {comparison.length - 8} more — see Analysis tab</p>}
+                {priceChanges.slice(0, 5).map((ch, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < Math.min(priceChanges.length, 5) - 1 ? '1px solid #2a2a1a' : 'none' }}>
+                    <div>
+                      <span style={{ fontSize: '12px', color: '#ddd' }}>{ch.product}</span>
+                      <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>{ch.competitor}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', color: '#666', textDecoration: 'line-through' }}>{ch.from}</span>
+                      <span style={{ fontSize: '13px', color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a', fontWeight: '600' }}>
+                        {ch.to} {ch.direction === 'down' ? '↓' : '↑'} {Math.abs(ch.pct)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {priceChanges.length > 5 && (
+                  <button onClick={() => setActivePage('analysis')} style={{ marginTop: '10px', fontSize: '11px', color: '#ccaa7a', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                    View all {priceChanges.length} changes in Analysis →
+                  </button>
+                )}
               </div>
             )}
 
-            {competitors.length === 0 && (
+            {/* Competitor rankings */}
+            {competitors.length === 0 ? (
               <div style={CARD}>
                 <h3 style={H3}>GET STARTED</h3>
-                <ol style={{ marginLeft: '20px', color: '#888', fontSize: '13px', lineHeight: '2.2' }}>
+                <ol style={{ marginLeft: '20px', color: '#666', fontSize: '13px', lineHeight: '2.4' }}>
                   <li>Go to <strong style={{ color: '#f5e6e0' }}>Competitors</strong> → Add competitor URLs</li>
                   <li>Click <strong style={{ color: '#f5e6e0' }}>CHECK NOW</strong> to scan each site</li>
-                  <li>Go to <strong style={{ color: '#f5e6e0' }}>Analysis</strong> to compare prices</li>
+                  <li>Come back here to see rankings and price changes</li>
                 </ol>
+              </div>
+            ) : (
+              <div style={CARD}>
+                <h3 style={H3}>COMPETITOR RANKINGS</h3>
+                <p style={{ fontSize: '11px', color: '#444', marginBottom: '14px' }}>Scored on product coverage (40pts) + lowest pricing (60pts)</p>
+
+                {/* Ranked (scanned) */}
+                {rankedCompetitors.map((c, i) => (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: i % 2 === 0 ? '#111' : '#161616', borderRadius: '6px', marginBottom: '4px' }}>
+                    {/* Rank */}
+                    <div style={{ minWidth: '28px', height: '28px', borderRadius: '50%', background: i === 0 ? '#3a3020' : '#1a1a1a', border: `1px solid ${i === 0 ? '#ccaa7a' : '#2a2a2a'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', color: i === 0 ? '#ccaa7a' : '#555', flexShrink: 0 }}>
+                      #{i + 1}
+                    </div>
+                    {/* Name + link */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: '#ddd', fontWeight: '500' }}>{c.name}</div>
+                      <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#555', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.website}
+                      </a>
+                    </div>
+                    {/* Products */}
+                    <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                      <div style={{ fontSize: '16px', color: '#ccc', fontWeight: '500' }}>{c.productCount}</div>
+                      <div style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase' }}>products</div>
+                    </div>
+                    {/* Score bar */}
+                    <div style={{ minWidth: '100px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase' }}>Score</span>
+                        <span style={{ fontSize: '11px', color: c.score >= 70 ? '#7acc7a' : c.score >= 40 ? '#cccc7a' : '#cc7a7a', fontWeight: '600' }}>{c.score}/100</span>
+                      </div>
+                      <div style={{ height: '4px', background: '#2a2a2a', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${c.score}%`, background: c.score >= 70 ? '#4a9a4a' : c.score >= 40 ? '#9a9a4a' : '#9a4a4a', borderRadius: '2px', transition: 'width 0.3s' }} />
+                      </div>
+                    </div>
+                    {/* Cheapest badge */}
+                    {cheapestSite === c.name && (
+                      <div style={{ fontSize: '9px', padding: '3px 8px', background: '#1a2a1a', border: '1px solid #4a9a4a', borderRadius: '99px', color: '#7acc7a', whiteSpace: 'nowrap' }}>CHEAPEST</div>
+                    )}
+                    {/* Last scan */}
+                    <div style={{ fontSize: '9px', color: '#333', minWidth: '70px', textAlign: 'right' }}>
+                      {c.lastScan ? new Date(c.lastScan).toLocaleDateString() : ''}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Unscanned */}
+                {unscannedCompetitors.map(c => (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#111', borderRadius: '6px', marginBottom: '4px', opacity: 0.5 }}>
+                    <div style={{ minWidth: '28px', height: '28px', borderRadius: '50%', background: '#1a1a1a', border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#333', flexShrink: 0 }}>—</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: '#666' }}>{c.name}</div>
+                      <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#444', textDecoration: 'none' }}>{c.website}</a>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#444' }}>Not scanned yet</div>
+                    <button onClick={() => { setActivePage('competitors'); }} style={{ fontSize: '10px', padding: '4px 10px', background: 'transparent', border: '1px solid #333', borderRadius: '4px', color: '#666', cursor: 'pointer', fontFamily: 'inherit' }}>SCAN</button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -275,14 +417,20 @@ export default function Home() {
               {competitors.map(c => {
                 const result = scrapeResults[c.id];
                 const products = result?.insights?.[0]?.items || [];
+                const competitorChanges = priceChanges.filter(ch => ch.competitor === c.name);
                 return (
                   <div key={c.id} style={CARD}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div>
                         <h3 style={{ ...H3, margin: 0 }}>{c.name}</h3>
-                        <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#666', textDecoration: 'none' }}>{c.website}</a>
+                        <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#555', textDecoration: 'none' }}>{c.website}</a>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {competitorChanges.length > 0 && (
+                          <span style={{ fontSize: '10px', padding: '3px 8px', background: '#1e1a14', border: '1px solid #7a5a2a', borderRadius: '99px', color: '#ccaa7a' }}>
+                            {competitorChanges.length} price change{competitorChanges.length > 1 ? 's' : ''}
+                          </span>
+                        )}
                         <button style={{ ...BTN_PRIMARY, padding: '7px 14px', fontSize: '11px', opacity: scraping[c.id] ? 0.6 : 1 }} onClick={() => handleScrape(c)} disabled={scraping[c.id]}>
                           {scraping[c.id] ? 'SCANNING...' : 'CHECK NOW'}
                         </button>
@@ -295,23 +443,33 @@ export default function Home() {
                     {result && !scraping[c.id] && (
                       result.success ? (
                         <div>
-                          <p style={{ fontSize: '11px', color: '#555', marginBottom: '10px' }}>Last scan: {fmt(result.scrapedAt)} · via {result.title} · {products.length} products</p>
-                          <div style={{ display: 'grid', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
+                          <p style={{ fontSize: '11px', color: '#444', marginBottom: '10px' }}>
+                            Last scan: {fmt(result.scrapedAt)} · via {result.title} · {products.length} products
+                          </p>
+                          <div style={{ display: 'grid', gap: '5px', maxHeight: '300px', overflowY: 'auto' }}>
                             {products.map((item, i) => {
                               const parts = item.split(' — ');
                               const name = parts[0]?.trim();
                               const pricePart = parts.find(p => p.includes('$')) || '';
                               const dosage = parts.find(p => p.match(/\d+\s*(?:mg|ml|g|iu)/i) && !p.includes('$')) || '';
                               const cat = categorize(name);
-                              const c2 = CATEGORY_COLORS[cat] || CATEGORY_COLORS['Other'];
+                              const cc = CATEGORY_COLORS[cat] || CATEGORY_COLORS['Other'];
+                              const changed = priceChanges.find(ch => ch.competitor === c.name && ch.product.toLowerCase() === name.toLowerCase());
                               return (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: '#111', borderRadius: '5px', border: '1px solid #222' }}>
-                                  <div>
-                                    <span style={{ fontSize: '12px', color: '#ddd' }}>{name}</span>
-                                    {dosage && <span style={{ fontSize: '10px', color: '#555', marginLeft: '6px' }}>{dosage}</span>}
-                                    <span style={{ marginLeft: '8px', fontSize: '9px', padding: '1px 6px', borderRadius: '99px', background: c2.bg, border: `1px solid ${c2.border}`, color: c2.text }}>{cat}</span>
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: changed ? '#1e1a14' : '#111', borderRadius: '5px', border: `1px solid ${changed ? '#7a5a2a' : '#1e1e1e'}` }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                                    <span style={{ fontSize: '12px', color: '#ccc' }}>{name}</span>
+                                    {dosage && <span style={{ fontSize: '10px', color: '#444' }}>{dosage}</span>}
+                                    <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '99px', background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, whiteSpace: 'nowrap' }}>{cat}</span>
                                   </div>
-                                  <span style={{ fontSize: '12px', color: '#f5e6e0', fontWeight: '500' }}>{pricePart}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                    {changed && (
+                                      <span style={{ fontSize: '10px', color: changed.direction === 'down' ? '#7acc7a' : '#cc7a7a' }}>
+                                        was {changed.from} {changed.direction === 'down' ? '↓' : '↑'}
+                                      </span>
+                                    )}
+                                    <span style={{ fontSize: '12px', color: '#f5e6e0', fontWeight: '500' }}>{pricePart}</span>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -327,17 +485,17 @@ export default function Home() {
             </div>
 
             {showModal && (
-              <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div onClick={e => e.stopPropagation()} style={{ background: '#181818', border: '1px solid #333', borderRadius: '10px', padding: '28px', maxWidth: '460px', width: '90%' }}>
-                  <h2 style={{ fontSize: '18px', marginBottom: '20px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' }}>Add Competitor</h2>
+                  <h2 style={{ fontSize: '16px', marginBottom: '20px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' }}>Add Competitor</h2>
                   {[{ label: 'Company Name *', key: 'name', placeholder: 'e.g., NCRP Canada', type: 'text' }, { label: 'Website URL *', key: 'website', placeholder: 'https://ncrpcanada.com', type: 'url' }].map(f => (
                     <div key={f.key}>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: '500', marginBottom: '6px', color: '#aaa', textTransform: 'uppercase' }}>{f.label}</label>
+                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{f.label}</label>
                       <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })}
                         style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box' }} />
                     </div>
                   ))}
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                     <button style={BTN} onClick={() => setShowModal(false)}>CANCEL</button>
                     <button style={BTN_PRIMARY} onClick={handleAddCompetitor}>ADD</button>
                   </div>
@@ -347,77 +505,96 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── ALERTS ─────────────────────────────────────────────── */}
-        {activePage === 'alerts' && (
-          <div>
-            <h1 style={H1}>ALERTS</h1>
-            <p style={SUB}>Scan history and results</p>
-            {alerts.length === 0 && (
-              <div style={CARD}><p style={P}>No scans yet. Go to Competitors and click CHECK NOW.</p></div>
-            )}
-            {alerts.map((alert, i) => (
-              <div key={i} style={{ ...CARD, marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <div>
-                    <h3 style={{ ...H3, margin: 0 }}>{alert.competitor}</h3>
-                    <p style={{ fontSize: '11px', color: '#555', margin: '3px 0' }}>{alert.url} · {fmt(alert.scrapedAt)}</p>
-                  </div>
-                  <span style={TAG}>SCAN</span>
-                </div>
-                {alert.insights?.[0]?.items?.slice(0, 5).map((item, j) => (
-                  <p key={j} style={{ fontSize: '12px', color: '#888', margin: '3px 0 3px 8px' }}>• {item}</p>
-                ))}
-                {(alert.insights?.[0]?.items?.length || 0) > 5 && (
-                  <p style={{ fontSize: '11px', color: '#555', margin: '6px 0 0 8px' }}>+ {alert.insights[0].items.length - 5} more products</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* ── ANALYSIS ───────────────────────────────────────────── */}
         {activePage === 'analysis' && (
           <div>
             <h1 style={H1}>ANALYSIS</h1>
-            <p style={SUB}>Price comparison across all competitors</p>
+            <p style={SUB}>Price comparison and change detection</p>
 
             {comparison.length === 0 && (
               <div style={CARD}>
                 <h3 style={H3}>NO DATA YET</h3>
-                <p style={P}>Scan at least one competitor to see price analysis.</p>
+                <p style={P}>Scan at least one competitor to see analysis.</p>
                 <button style={{ ...BTN_PRIMARY, marginTop: '12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
               </div>
             )}
 
             {comparison.length > 0 && (
               <>
-                {/* Insights summary */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '24px' }}>
-                  <div style={STAT_CARD}>
-                    <div style={STAT_LABEL}>Cheapest Overall</div>
-                    <div style={{ fontSize: '15px', color: '#7acc7a', fontWeight: '500', marginTop: '6px' }}>{cheapestSite || '—'}</div>
-                  </div>
-                  <div style={STAT_CARD}>
-                    <div style={STAT_LABEL}>Products Compared</div>
-                    <div style={STAT_VAL}>{totalProducts}</div>
-                  </div>
-                  <div style={STAT_CARD}>
-                    <div style={STAT_LABEL}>Price Range</div>
-                    <div style={{ fontSize: '14px', color: '#f5e6e0', fontWeight: '500', marginTop: '6px' }}>
-                      {allPrices.length ? `$${Math.min(...allPrices).toFixed(2)} – $${Math.max(...allPrices).toFixed(2)}` : '—'}
+                {/* Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+                  <div style={STAT_CARD}><div style={STAT_LABEL}>Cheapest Overall</div><div style={{ fontSize: '14px', color: '#7acc7a', fontWeight: '500', marginTop: '6px' }}>{cheapestSite || '—'}</div></div>
+                  <div style={STAT_CARD}><div style={STAT_LABEL}>Products Compared</div><div style={{ fontSize: '28px', color: '#f5e6e0', marginTop: '4px' }}>{comparison.length}</div></div>
+                  <div style={STAT_CARD}><div style={STAT_LABEL}>Price Range</div><div style={{ fontSize: '13px', color: '#f5e6e0', fontWeight: '500', marginTop: '6px' }}>{allPrices.length ? `$${Math.min(...allPrices).toFixed(2)} – $${Math.max(...allPrices).toFixed(2)}` : '—'}</div></div>
+                  <div style={STAT_CARD}><div style={STAT_LABEL}>Price Changes</div><div style={{ fontSize: '28px', color: priceChanges.length > 0 ? '#ccaa7a' : '#f5e6e0', marginTop: '4px' }}>{priceChanges.length}</div></div>
+                </div>
+
+                {/* Price changes section */}
+                {priceChanges.length > 0 && (
+                  <div style={{ ...CARD, marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                      <h3 style={{ ...H3, margin: 0 }}>PRICE CHANGES DETECTED</h3>
+                      <button onClick={() => { if (window.confirm('Clear all price change history?')) { setPriceChanges([]); localStorage.removeItem('aria_changes'); } }} style={{ fontSize: '10px', padding: '4px 10px', background: 'transparent', border: '1px solid #333', borderRadius: '4px', color: '#555', cursor: 'pointer', fontFamily: 'inherit' }}>CLEAR</button>
+                    </div>
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                      {priceChanges.map((ch, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#1a1a14', border: '1px solid #2a2a1a', borderRadius: '6px' }}>
+                          <div>
+                            <span style={{ fontSize: '13px', color: '#ddd', fontWeight: '500' }}>{ch.product}</span>
+                            <span style={{ fontSize: '11px', color: '#555', marginLeft: '10px' }}>{ch.competitor}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '11px', color: '#555', textDecoration: 'line-through' }}>{ch.from}</span>
+                            <span style={{ fontSize: '14px', color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a', fontWeight: '600' }}>
+                              {ch.to}
+                            </span>
+                            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '99px', background: ch.direction === 'down' ? '#1a2a1a' : '#2a1a1a', border: `1px solid ${ch.direction === 'down' ? '#4a9a4a' : '#9a4a4a'}`, color: ch.direction === 'down' ? '#7acc7a' : '#cc7a7a' }}>
+                              {ch.direction === 'down' ? '↓' : '↑'} {Math.abs(ch.pct)}%
+                            </span>
+                            <span style={{ fontSize: '10px', color: '#333' }}>{ch.detectedAt ? new Date(ch.detectedAt).toLocaleDateString() : ''}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div style={STAT_CARD}>
-                    <div style={STAT_LABEL}>Avg Price</div>
-                    <div style={{ fontSize: '14px', color: '#f5e6e0', fontWeight: '500', marginTop: '6px' }}>
-                      {allPrices.length ? `$${(allPrices.reduce((a, b) => a + b, 0) / allPrices.length).toFixed(2)}` : '—'}
-                    </div>
+                )}
+
+                {/* Key insights */}
+                <div style={{ ...CARD, marginBottom: '16px' }}>
+                  <h3 style={H3}>KEY INSIGHTS</h3>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {cheapestSite && (
+                      <div style={{ padding: '12px', background: '#1a2a1a', border: '1px solid #4a9a4a', borderRadius: '6px' }}>
+                        <p style={{ fontSize: '12px', color: '#7acc7a', margin: 0 }}><strong>Cheapest overall:</strong> {cheapestSite} has the lowest average pricing across all tracked products.</p>
+                      </div>
+                    )}
+                    {(() => {
+                      const overpriced = comparison.filter(p => {
+                        const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
+                        if (prices.length < 2) return false;
+                        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+                        return Math.max(...prices) > avg * 1.3;
+                      });
+                      return overpriced.length > 0 ? (
+                        <div style={{ padding: '12px', background: '#2a1a1a', border: '1px solid #9a4a4a', borderRadius: '6px' }}>
+                          <p style={{ fontSize: '12px', color: '#cc7a7a', margin: 0 }}><strong>Price gaps detected:</strong> {overpriced.slice(0, 3).map(p => p.name).join(', ')} show 30%+ variation across sites.</p>
+                        </div>
+                      ) : null;
+                    })()}
+                    {(() => {
+                      const cats = {};
+                      comparison.forEach(p => { cats[p.category] = (cats[p.category] || 0) + 1; });
+                      const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+                      return top ? (
+                        <div style={{ padding: '12px', background: '#1a1a2a', border: '1px solid #4a4a9a', borderRadius: '6px' }}>
+                          <p style={{ fontSize: '12px', color: '#7a7acc', margin: 0 }}><strong>Most competitive category:</strong> {top[0]} with {top[1]} products tracked.</p>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
 
-
-
-                {/* Comparison table — uses top-level analysisFilter + analysisSortBy */}
+                {/* Comparison table */}
                 {(() => {
                   const categories = ['ALL', ...new Set(comparison.map(p => p.category))];
                   const allSites = [...new Set(comparison.flatMap(p => Object.keys(p.sites)))];
@@ -449,10 +626,10 @@ export default function Home() {
                         </div>
                       </div>
                       <div style={{ overflowX: 'auto' }}>
-                        <div style={{ minWidth: `${200 + 140 + allSites.length * 120}px` }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '120px').join(' ')}`, gap: '1px', marginBottom: '4px' }}>
+                        <div style={{ minWidth: `${200 + 140 + allSites.length * 130}px` }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '130px').join(' ')}`, marginBottom: '4px' }}>
                             {['PRODUCT', 'CATEGORY', ...allSites].map((h, i) => (
-                              <div key={i} style={{ fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>{h}</div>
+                              <div key={i} style={{ fontSize: '9px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>{h}</div>
                             ))}
                           </div>
                           <div style={{ display: 'grid', gap: '3px' }}>
@@ -460,9 +637,13 @@ export default function Home() {
                               const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
                               const minPrice = prices.length ? Math.min(...prices) : null;
                               const cat = CATEGORY_COLORS[p.category] || CATEGORY_COLORS['Other'];
+                              const hasChange = priceChanges.some(ch => ch.product.toLowerCase() === p.name.toLowerCase());
                               return (
-                                <div key={i} style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '120px').join(' ')}`, gap: '1px', background: i % 2 === 0 ? '#161616' : '#111', borderRadius: '4px' }}>
-                                  <div style={{ padding: '8px', fontSize: '12px', color: '#ddd', alignSelf: 'center', wordBreak: 'break-word' }}>{p.name}</div>
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: `200px 140px ${allSites.map(() => '130px').join(' ')}`, background: hasChange ? '#1a1a14' : i % 2 === 0 ? '#161616' : '#111', borderRadius: '4px', border: hasChange ? '1px solid #2a2a1a' : '1px solid transparent' }}>
+                                  <div style={{ padding: '8px', fontSize: '12px', color: '#ddd', alignSelf: 'center', wordBreak: 'break-word' }}>
+                                    {p.name}
+                                    {hasChange && <span style={{ marginLeft: '6px', fontSize: '9px', color: '#ccaa7a' }}>↕</span>}
+                                  </div>
                                   <div style={{ padding: '8px', alignSelf: 'center' }}>
                                     <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '99px', background: cat.bg, border: `1px solid ${cat.border}`, color: cat.text, whiteSpace: 'nowrap' }}>{p.category}</span>
                                   </div>
@@ -470,7 +651,7 @@ export default function Home() {
                                     const sd = p.sites[site];
                                     const isLowest = sd?.value && sd.value === minPrice && prices.length > 1;
                                     return (
-                                      <div key={site} style={{ padding: '8px', fontSize: '12px', color: isLowest ? '#7acc7a' : sd ? '#ccc' : '#333', fontWeight: isLowest ? '600' : '400', alignSelf: 'center' }}>
+                                      <div key={site} style={{ padding: '8px', fontSize: '12px', color: isLowest ? '#7acc7a' : sd ? '#ccc' : '#2a2a2a', fontWeight: isLowest ? '600' : '400', alignSelf: 'center' }}>
                                         {sd ? sd.price : '—'}
                                         {isLowest && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#4a9a4a' }}>LOW</span>}
                                       </div>
@@ -486,41 +667,6 @@ export default function Home() {
                     </div>
                   );
                 })()}
-
-                {/* Key insights */}
-                <div style={CARD}>
-                  <h3 style={H3}>KEY INSIGHTS</h3>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {cheapestSite && (
-                      <div style={{ padding: '12px', background: '#1a2a1a', border: '1px solid #4a9a4a', borderRadius: '6px' }}>
-                        <p style={{ fontSize: '12px', color: '#7acc7a', margin: 0 }}><strong>Cheapest overall:</strong> {cheapestSite} has the lowest average pricing across all tracked products.</p>
-                      </div>
-                    )}
-                    {(() => {
-                      const overpriced = comparison.filter(p => {
-                        const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
-                        if (prices.length < 2) return false;
-                        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-                        return Math.max(...prices) > avg * 1.3;
-                      });
-                      return overpriced.length > 0 ? (
-                        <div style={{ padding: '12px', background: '#2a1a1a', border: '1px solid #9a4a4a', borderRadius: '6px' }}>
-                          <p style={{ fontSize: '12px', color: '#cc7a7a', margin: 0 }}><strong>Price gaps detected:</strong> {overpriced.slice(0, 3).map(p => p.name).join(', ')} show 30%+ price variation across sites.</p>
-                        </div>
-                      ) : null;
-                    })()}
-                    {(() => {
-                      const cats = {};
-                      comparison.forEach(p => { cats[p.category] = (cats[p.category] || 0) + 1; });
-                      const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
-                      return top ? (
-                        <div style={{ padding: '12px', background: '#1a1a2a', border: '1px solid #4a4a9a', borderRadius: '6px' }}>
-                          <p style={{ fontSize: '12px', color: '#7a7acc', margin: 0 }}><strong>Most competitive category:</strong> {top[0]} with {top[1]} products tracked across competitors.</p>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
               </>
             )}
           </div>
@@ -533,29 +679,32 @@ export default function Home() {
             <p style={SUB}>Configure your ARIA platform</p>
             <div style={CARD}>
               <h3 style={H3}>DATA MANAGEMENT</h3>
-              <p style={P}>Your competitors, scan results, and alerts are saved in your browser and survive page refreshes.</p>
+              <p style={P}>All data is saved in your browser and survives page refreshes. Includes competitors, scan results, and price change history.</p>
               <button style={{ ...BTN, marginTop: '12px', borderColor: '#cc7a7a', color: '#cc7a7a' }} onClick={() => {
-                if (window.confirm('Clear all data? This cannot be undone.')) {
-                  setCompetitors([]); setAlerts([]); setScrapeResults({});
-                  localStorage.removeItem('aria_competitors');
-                  localStorage.removeItem('aria_alerts');
-                  localStorage.removeItem('aria_results');
+                if (window.confirm('Clear ALL data? This cannot be undone.')) {
+                  setCompetitors([]); setScrapeResults({}); setPrevScrapeResults({}); setPriceChanges([]);
+                  ['aria_competitors','aria_results','aria_prev_results','aria_changes'].forEach(k => localStorage.removeItem(k));
                 }
               }}>CLEAR ALL DATA</button>
             </div>
             <div style={CARD}>
-              <h3 style={H3}>PRODUCT CATEGORIES</h3>
-              <p style={P}>Products are automatically categorized by name. Categories used:</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                {Object.entries(CATEGORY_COLORS).map(([cat, colors]) => (
-                  <span key={cat} style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '99px', background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text }}>{cat}</span>
-                ))}
+              <h3 style={H3}>HOW SCORING WORKS</h3>
+              <p style={P}>Each competitor is scored out of 100 based on two factors:</p>
+              <div style={{ display: 'grid', gap: '8px', marginTop: '8px' }}>
+                <div style={{ padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
+                  <p style={{ fontSize: '13px', color: '#ddd', margin: '0 0 4px' }}>Product Coverage — 40 points</p>
+                  <p style={{ fontSize: '12px', color: '#555', margin: 0 }}>How many of the total tracked products does this competitor carry?</p>
+                </div>
+                <div style={{ padding: '10px 14px', background: '#111', borderRadius: '6px', border: '1px solid #222' }}>
+                  <p style={{ fontSize: '13px', color: '#ddd', margin: '0 0 4px' }}>Pricing Competitiveness — 60 points</p>
+                  <p style={{ fontSize: '12px', color: '#555', margin: 0 }}>How often does this competitor have the lowest price across all products?</p>
+                </div>
               </div>
             </div>
             <div style={CARD}>
               <h3 style={H3}>ABOUT ARIA</h3>
               <p style={P}>ARIA — Adaptive Research Intelligence Assistant</p>
-              <p style={{ ...P, color: '#555' }}>VERSION: 2.0 | STATUS: PRODUCTION READY</p>
+              <p style={{ ...P, color: '#444' }}>VERSION: 2.1 | Price Change Detection | Competitor Scoring</p>
             </div>
           </div>
         )}
@@ -566,13 +715,11 @@ export default function Home() {
 }
 
 const H1 = { fontSize: '26px', fontWeight: '400', marginBottom: '6px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' };
-const SUB = { color: '#555', marginBottom: '28px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '20px', marginBottom: '16px' };
-const H3 = { fontSize: '12px', fontWeight: '600', margin: '0 0 14px 0', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' };
-const P = { color: '#888', lineHeight: '1.6', marginBottom: '10px', fontSize: '13px' };
-const STAT_CARD = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '18px' };
-const STAT_LABEL = { fontSize: '9px', color: '#555', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' };
-const STAT_VAL = { fontSize: '32px', fontWeight: '400', color: '#f5e6e0' };
-const TAG = { display: 'inline-block', padding: '3px 10px', background: '#222', color: '#f5e6e0', border: '1px solid #333', borderRadius: '99px', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const BTN = { padding: '9px 18px', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: '400', fontSize: '11px', background: 'transparent', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit' };
-const BTN_PRIMARY = { padding: '9px 18px', border: '1px solid #f5e6e0', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', fontSize: '11px', background: '#f5e6e0', color: '#181818', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit' };
+const SUB = { color: '#444', marginBottom: '28px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' };
+const CARD = { background: '#181818', border: '1px solid #222', borderRadius: '8px', padding: '20px', marginBottom: '16px' };
+const H3 = { fontSize: '11px', fontWeight: '600', margin: '0 0 14px 0', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' };
+const P = { color: '#666', lineHeight: '1.6', marginBottom: '10px', fontSize: '13px' };
+const STAT_CARD = { background: '#181818', border: '1px solid #222', borderRadius: '8px', padding: '16px' };
+const STAT_LABEL = { fontSize: '9px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' };
+const BTN = { padding: '9px 18px', border: '1px solid #333', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', background: 'transparent', color: '#777', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit' };
+const BTN_PRIMARY = { padding: '9px 18px', border: '1px solid #f5e6e0', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', background: '#f5e6e0', color: '#181818', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'inherit', fontWeight: '500' };
