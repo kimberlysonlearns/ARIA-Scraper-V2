@@ -442,7 +442,6 @@ export default function Home() {
     { id: 'competitors', label: 'COMPETITORS' },
     { id: 'analysis', label: 'ANALYSIS' },
     { id: 'marketintel', label: 'MARKET INTEL' },
-    { id: 'allproducts', label: 'ALL PRODUCTS' },
     { id: 'peptideguide', label: 'PEPTIDE GUIDE' },
     { id: 'settings', label: 'SETTINGS' },
   ];
@@ -1013,44 +1012,6 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   </div>
                 )}
 
-                {/* Key insights */}
-                <div style={{ ...CARD, marginBottom: '16px' }}>
-                  <h3 style={H3}>KEY INSIGHTS</h3>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {cheapestSite && (
-                      <div style={{ padding: '12px 14px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: '6px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                        <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#b0ffd8', marginTop: '6px' }} />
-                        <p style={{ fontSize: '13px', color: '#ccc', margin: 0, lineHeight: '1.6' }}><span style={{ color: '#f5e6e0', fontWeight: '600' }}>Cheapest overall:</span> {cheapestSite} has the lowest average pricing across all tracked products.</p>
-                      </div>
-                    )}
-                    {(() => {
-                      const overpriced = comparison.filter(p => {
-                        const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
-                        if (prices.length < 2) return false;
-                        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-                        return Math.max(...prices) > avg * 1.3;
-                      });
-                      return overpriced.length > 0 ? (
-                        <div style={{ padding: '12px 14px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: '6px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                          <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#ffb0e0', marginTop: '6px' }} />
-                          <p style={{ fontSize: '13px', color: '#ccc', margin: 0, lineHeight: '1.6' }}><span style={{ color: '#f5e6e0', fontWeight: '600' }}>Price gaps detected:</span> {overpriced.slice(0, 3).map(p => p.name).join(', ')} show 30%+ variation across sites.</p>
-                        </div>
-                      ) : null;
-                    })()}
-                    {(() => {
-                      const cats = {};
-                      comparison.forEach(p => { cats[p.category] = (cats[p.category] || 0) + 1; });
-                      const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
-                      return top ? (
-                        <div style={{ padding: '12px 14px', background: '#161616', border: '1px solid #2a2a2a', borderRadius: '6px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                          <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#b0d4ff', marginTop: '6px' }} />
-                          <p style={{ fontSize: '13px', color: '#ccc', margin: 0, lineHeight: '1.6' }}><span style={{ color: '#f5e6e0', fontWeight: '600' }}>Most competitive category:</span> {top[0]} with {top[1]} products tracked.</p>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
-
                 {/* Comparison table */}
                 {(() => {
                   const categories = ['ALL', ...new Set(comparison.map(p => p.category))];
@@ -1245,32 +1206,11 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     { label: 'Unique features', render: (k) => (k.uniqueFeatures||[]).length > 0 ? <div>{(k.uniqueFeatures||[]).map((f,i) => <Pill key={i} text={f} type="purple" />)}</div> : <None /> },
                   ]} />
 
-                  <div style={{ ...SEC, border: '1px solid #3a3a5a' }}>
-                    <div style={{ ...SEC_HEAD, color: '#c0b8e0' }}>Market Gaps — opportunities none of your competitors are taking</div>
-                    <div style={{ padding: '16px', display: 'grid', gap: '10px' }}>
-                      {[
-                        { title: 'Subscription pricing', body: 'None of the 4 tracked competitors offer recurring orders. First-mover advantage available — recurring revenue and customer lock-in.' },
-                        { title: 'Multi-pack bundles', body: 'Only Growth Guys offers volume discounts. Purity Peptides, NCRP and Peptide Warehouse leave average order value on the table.' },
-                        { title: 'Public lab results page', body: 'Only Growth Guys publishes a dedicated per-batch results page. A public transparency page is a proven trust differentiator.' },
-                      ].map((g, i) => (
-                        <div key={i} style={{ padding: '12px 14px', background: '#141420', borderRadius: '6px', border: '1px solid #2a2a4a', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                          <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#9a8ac8', marginTop: '6px' }} />
-                          <div>
-                            <p style={{ fontSize: '13px', fontFamily: F, color: '#d0c8f0', margin: '0 0 4px', fontWeight: '600' }}>{g.title}</p>
-                            <p style={{ fontSize: '13px', fontFamily: F, color: '#999', margin: 0, lineHeight: '1.7' }}>{g.body}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </>
               );
             })()}
           </div>
         )}
-
-        {/* ── ALL PRODUCTS ───────────────────────────────────────── */}
-        {activePage === 'allproducts' && <AllProductsTab competitors={competitors} scrapeResults={scrapeResults} setActivePage={setActivePage} />}
 
         {/* ── PEPTIDE GUIDE ──────────────────────────────────────── */}
         {activePage === 'peptideguide' && <PeptideGuideTab />}
