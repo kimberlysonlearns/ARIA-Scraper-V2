@@ -2,201 +2,299 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
-  const baseUrl = url.replace(/\/$/, '').split('/').slice(0, 3).join('/');
 
-  try {
-    const html = await fetchHTML(url);
-    if (!html) return res.status(200).json({ success: false, error: 'Could not access this website.', url });
-
-    const title = clean(html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '');
-
-    // Method 1: WooCommerce API
-    const wooProducts = await tryWooAPI(baseUrl);
-    if (wooProducts.length > 0) {
-      return res.status(200).json({
-        success: true, url, title,
-        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: wooProducts }],
-        scrapedAt: new Date().toISOString(),
-      });
-    }
-
-    // Method 2: JSON-LD
-    const jsonProducts = extractJSONLD(html);
-    if (jsonProducts.length > 0) {
-      return res.status(200).json({
-        success: true, url, title,
-        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: jsonProducts }, ...generalInsights(html)],
-        scrapedAt: new Date().toISOString(),
-      });
-    }
-
-    // Method 3: Convert entire page to plain text first, then extract
-    const products = extractFromPlainText(html);
-    if (products.length > 0) {
-      return res.status(200).json({
-        success: true, url, title,
-        insights: [{ type: 'PRODUCTS & PRICING', tag: 'PRODUCTS', items: products }, ...generalInsights(html)],
-        scrapedAt: new Date().toISOString(),
-      });
-    }
-
-    // Fallback
-    const gi = generalInsights(html);
-    const meta = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{10,300})["']/i)?.[1];
-    if (meta) gi.push({ type: 'SITE DESCRIPTION', tag: 'INFO', items: [clean(meta)] });
-    return res.status(200).json({ success: true, url, title, insights: gi, scrapedAt: new Date().toISOString() });
-
-  } catch (e) {
-    return res.status(200).json({ success: false, error: e.message || 'Failed', url });
-  }
-}
-
-// Clean HTML entities
-function clean(str) {
-  if (!str) return '';
-  return str
-    .replace(/&#36;/g, '$').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
-    .replace(/&#8211;/g, '-').replace(/&#8212;/g, '-').replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
-    .replace(/&\w+;/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-async function fetchHTML(url) {
-  try {
-    const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html' },
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!r.ok) return null;
-    return await r.text();
-  } catch { return null; }
-}
-
-async function tryWooAPI(baseUrl) {
-  try {
-    const r = await fetch(`${baseUrl}/wp-json/wc/v3/products?per_page=50&status=publish`, {
-      headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000),
-    });
-    if (!r.ok) return [];
-    const p = await r.json();
-    if (!Array.isArray(p) || !p.length) return [];
-    return p.map(x => {
-      const price = x.sale_price || x.price || x.regular_price || '';
-      const weight = x.weight ? `${x.weight}` : '';
-      return clean(`${x.name}${weight ? ' — ' + weight : ''}${price ? ' — $' + price : ''}`);
-    }).filter(Boolean);
-  } catch { return []; }
-}
-
-function extractJSONLD(html) {
+  const base = url.replace(/\/$/, '').split('/').slice(0, 3).join('/');
   const results = [];
-  (html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || []).forEach(b => {
-    try {
-      const j = JSON.parse(b.replace(/<\/?script[^>]*>/gi, ''));
-      const items = Array.isArray(j) ? j : [j];
-      items.forEach(i => {
-        (i['@graph'] || [i]).forEach(n => {
-          if (n['@type'] === 'Product' && n.name) {
-            const price = n.offers?.price || n.offers?.lowPrice || '';
-            results.push(clean(`${n.name}${price ? ' — $' + price : ''}`));
-          }
-        });
-      });
-    } catch {}
-  });
-  return results;
-}
+  let methodUsed = '';
 
-// KEY FIX: Convert entire HTML to plain text first, then find product+dosage+price patterns
-function extractFromPlainText(html) {
-  // Step 1: Decode ALL HTML entities first
-  let text = html
-    .replace(/&#36;/g, '$').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
-    .replace(/&#8211;/g, '-').replace(/&#8212;/g, '-').replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
-    .replace(/&\w+;/g, ' ');
-
-  // Step 2: Remove scripts, styles, nav, footer
-  text = text
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, ' ')
-    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, ' ');
-
-  // Step 3: Strip remaining tags
-  text = text.replace(/<[^>]+>/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
-
-  // Step 4: Split into lines
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-  const results = [];
-  const skipWords = ['copyright', 'shipping', 'faq', 'why choose', 'contact', 'home', 'cart', 'add to cart', 'order now', 'documentation', 'quantity', 'out of stock', 'please contact', 'see our products', 'questions', 'how should', 'how do i', 'how much', 'are your', 'all products listed', 'all orders', 'all sales', 'evolve', 'choose us', 'choose', 'now available', 'subscribe', 'dismiss', 'follow'];
-
-  const dosagePattern = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:\s*\/\s*\d+\s*(?:mg|mcg|ml|g|iu|tablets?|caps?|vials?|tabs?))?(?:\s*\/?\s*\d+\s*(?:tablets?|caps?|vials?|tabs?))?$/i;
-  const pricePattern = /^\$[\d,]+(?:\.\d{2})?$/;
-  const productPattern = /^[A-Z][A-Za-z0-9\s\-()./+]{2,60}$/;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Skip noise
-    if (skipWords.some(w => line.toLowerCase().includes(w))) continue;
-    if (line.length < 3 || line.length > 80) continue;
-    if (line.includes('{') || line.includes('function') || line.includes('http')) continue;
-
-    // Check if this line looks like a product name
-    if (productPattern.test(line) && line === line.replace(/[a-z]/g, s => s)) {
-      // ALL CAPS or mixed — likely a product name
-      // Look ahead for dosage and price in the next 6 lines
-      let dosage = '';
-      let price = '';
-
-      for (let j = i + 1; j < Math.min(i + 7, lines.length); j++) {
-        const next = lines[j].trim();
-        if (!dosage && dosagePattern.test(next)) dosage = next;
-        if (!price && pricePattern.test(next)) price = next;
-        // Stop if we hit another product name
-        if (j > i + 1 && productPattern.test(next) && next === next.replace(/[a-z]/g, s => s) && next.length > 3) break;
-      }
-
-      if (price || dosage) {
-        const parts = [line, dosage, price].filter(Boolean);
-        results.push(parts.join(' — '));
-      }
-    }
+  // ── PATH A: WooCommerce REST API ─────────────────────────────────
+  // Every WooCommerce store exposes this endpoint publicly
+  // Returns clean JSON with name + price directly
+  const apiData = await tryWooAPI(base);
+  if (apiData.length > 0) {
+    methodUsed = 'WooCommerce REST API';
+    apiData.forEach(p => results.push(p));
   }
 
-  // If the above didn't work, try a looser approach — find any line with a $ nearby
+  // ── PATH B: Embedded JSON in script tags ─────────────────────────
+  // WooCommerce bakes product data into <script> tags in the HTML
+  // This is always present even before JavaScript runs
   if (results.length === 0) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (skipWords.some(w => line.toLowerCase().includes(w))) continue;
-      if (line.length < 3 || line.length > 60) continue;
-      if (!line.match(/^[A-Za-z]/)) continue;
+    const html = await fetchHTML(url);
+    if (html) {
+      const embedded = extractEmbeddedJSON(html);
+      if (embedded.length > 0) {
+        methodUsed = 'Embedded Script JSON';
+        embedded.forEach(p => results.push(p));
+      }
 
-      // Look ahead for a price
-      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
-        if (pricePattern.test(lines[j])) {
-          results.push(`${line} — ${lines[j]}`);
-          break;
+      // ── PATH C: WooCommerce product feed (XML) ─────────────────
+      // WooCommerce generates a product feed at /feed/?post_type=product
+      // Pure XML with every product name and price
+      if (results.length === 0) {
+        const feed = await tryProductFeed(base);
+        if (feed.length > 0) {
+          methodUsed = 'WooCommerce Product Feed';
+          feed.forEach(p => results.push(p));
+        }
+      }
+
+      // ── PATH D: WooCommerce store API fragments ─────────────────
+      // WooCommerce exposes product data at /wp-json/wc/store/v1/products
+      // This is a public endpoint that doesn't require authentication
+      if (results.length === 0) {
+        const storeApi = await tryStoreAPI(base);
+        if (storeApi.length > 0) {
+          methodUsed = 'WooCommerce Store API';
+          storeApi.forEach(p => results.push(p));
+        }
+      }
+
+      // ── PATH E: Plain text line-by-line ─────────────────────────
+      // Last resort — convert page to plain text and find name+price pairs
+      // Works on simple static sites like NCRP Canada
+      if (results.length === 0) {
+        const plain = extractFromPlainText(html);
+        if (plain.length > 0) {
+          methodUsed = 'Plain Text';
+          plain.forEach(p => results.push(p));
         }
       }
     }
   }
 
-  return [...new Set(results)].slice(0, 25);
+  if (results.length === 0) {
+    return res.status(200).json({
+      success: false,
+      error: 'Could not extract products. This site likely loads prices via JavaScript after page render. Try scanning a specific product page URL instead of the homepage.',
+      url,
+      scrapedAt: new Date().toISOString(),
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    url,
+    title: methodUsed,
+    insights: [{
+      type: `PRODUCTS & PRICING (via ${methodUsed})`,
+      tag: 'PRODUCTS',
+      items: results,
+    }],
+    scrapedAt: new Date().toISOString(),
+  });
 }
 
-function generalInsights(html) {
-  const insights = [];
-  // Decode first then extract prices
-  const decoded = html
+// ── Fetch HTML ──────────────────────────────────────────────────────
+async function fetchHTML(url) {
+  try {
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/json,*/*' },
+      signal: AbortSignal.timeout(12000),
+    });
+    return r.ok ? await r.text() : null;
+  } catch { return null; }
+}
+
+// ── Decode HTML entities ────────────────────────────────────────────
+function decode(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&#36;/g, '$').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '-').replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
+    .replace(/&\w+;/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// ── PATH A: WooCommerce REST API ────────────────────────────────────
+async function tryWooAPI(base) {
+  try {
+    const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&status=publish`, {
+      headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return [];
+    const data = await r.json();
+    if (!Array.isArray(data) || !data.length) return [];
+    return data
+      .filter(p => p.name && (p.price || p.regular_price))
+      .map(p => `${decode(p.name)} — $${p.sale_price || p.price || p.regular_price}`);
+  } catch { return []; }
+}
+
+// ── PATH B: Embedded JSON in script tags ────────────────────────────
+function extractEmbeddedJSON(html) {
+  const results = [];
+
+  // WooCommerce embeds product data in various script tag formats
+  // Pattern 1: window.__wcSharedData or similar global objects
+  const scriptBlocks = html.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
+
+  for (const block of scriptBlocks) {
+    const content = block.replace(/<\/?script[^>]*>/gi, '');
+
+    // Look for JSON objects containing "name" and "price" keys
+    const jsonMatches = content.match(/\{[^{}]*"(?:name|title)"[^{}]*"(?:price|regular_price|sale_price)"[^{}]*\}/g) || [];
+
+    for (const jsonStr of jsonMatches) {
+      try {
+        const obj = JSON.parse(jsonStr);
+        const name = obj.name || obj.title || '';
+        const price = obj.sale_price || obj.price || obj.regular_price || '';
+        if (name && price) {
+          results.push(`${decode(name)} — $${decode(String(price))}`);
+        }
+      } catch {}
+    }
+
+    // Pattern 2: WooCommerce variation data embedded as JSON
+    try {
+      const varMatch = content.match(/\"variations_data\"\s*:\s*(\{[\s\S]*?\})\s*[,}]/);
+      if (varMatch) {
+        const vars = JSON.parse(varMatch[1]);
+        Object.values(vars).forEach((v) => {
+          if (v.price_html) {
+            const price = v.price_html.replace(/<[^>]+>/g, '').replace(/[^0-9.,$]/g, '').trim();
+            if (price) results.push(`Product variant — ${price}`);
+          }
+        });
+      }
+    } catch {}
+
+    // Pattern 3: nextjs/gatsby embedded page data
+    try {
+      const nextMatch = content.match(/window\.__NEXT_DATA__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/);
+      if (nextMatch) {
+        const nextData = JSON.parse(nextMatch[1]);
+        const pageProps = nextData?.props?.pageProps;
+        if (pageProps?.products) {
+          pageProps.products.forEach((p) => {
+            const name = p.name || p.title || '';
+            const price = p.price || p.regularPrice || '';
+            if (name && price) results.push(`${decode(name)} — $${decode(String(price))}`);
+          });
+        }
+      }
+    } catch {}
+
+    // Pattern 4: Shopify embedded product JSON
+    try {
+      const shopifyMatch = content.match(/var\s+meta\s*=\s*(\{[\s\S]*?\});/) ||
+                           content.match(/ShopifyAnalytics\.meta\s*=\s*(\{[\s\S]*?\});/);
+      if (shopifyMatch) {
+        const meta = JSON.parse(shopifyMatch[1]);
+        if (meta?.product) {
+          const p = meta.product;
+          const price = p.price ? `$${(p.price / 100).toFixed(2)}` : '';
+          if (p.title && price) results.push(`${decode(p.title)} — ${price}`);
+        }
+      }
+    } catch {}
+  }
+
+  return [...new Set(results)].slice(0, 30);
+}
+
+// ── PATH C: WooCommerce Product Feed ───────────────────────────────
+async function tryProductFeed(base) {
+  try {
+    const feedUrls = [
+      `${base}/feed/?post_type=product`,
+      `${base}/?feed=products`,
+      `${base}/product-feed/`,
+    ];
+    for (const feedUrl of feedUrls) {
+      const r = await fetch(feedUrl, { signal: AbortSignal.timeout(6000) });
+      if (!r.ok) continue;
+      const xml = await r.text();
+      const items = xml.match(/<item>([\s\S]*?)<\/item>/gi) || [];
+      const results = [];
+      items.forEach(item => {
+        const title = decode(item.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || '');
+        const price = item.match(/<g:price>([\s\S]*?)<\/g:price>/i)?.[1]?.trim() ||
+                      item.match(/<price>([\s\S]*?)<\/price>/i)?.[1]?.trim() || '';
+        if (title && title.length > 2) {
+          results.push(price ? `${title} — ${price}` : title);
+        }
+      });
+      if (results.length > 0) return results;
+    }
+    return [];
+  } catch { return []; }
+}
+
+// ── PATH D: WooCommerce Store API ───────────────────────────────────
+async function tryStoreAPI(base) {
+  try {
+    const endpoints = [
+      `${base}/wp-json/wc/store/v1/products?per_page=100`,
+      `${base}/wp-json/wc/store/products?per_page=100`,
+    ];
+    for (const endpoint of endpoints) {
+      const r = await fetch(endpoint, {
+        headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) continue;
+      const data = await r.json();
+      if (!Array.isArray(data) || !data.length) continue;
+      return data
+        .filter(p => p.name && p.prices?.price)
+        .map(p => {
+          const price = (parseInt(p.prices.price) / 100).toFixed(2);
+          return `${decode(p.name)} — $${price}`;
+        });
+    }
+    return [];
+  } catch { return []; }
+}
+
+// ── PATH E: Plain text line-by-line (static sites) ──────────────────
+function extractFromPlainText(html) {
+  // Decode ALL entities first — this is the key step
+  let text = html
     .replace(/&#36;/g, '$').replace(/&amp;/g, '&')
-    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c));
-  const text = decoded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  const prices = [...new Set((text.match(/\$[\d,]+(?:\.\d{2})?/g) || []))].slice(0, 10);
-  if (prices.length > 0) insights.push({ type: 'ALL PRICES FOUND', tag: 'PRICING', items: prices });
-  return insights;
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
+    .replace(/&\w+;/g, ' ');
+
+  // Remove noise
+  text = text
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+
+  // Convert to lines
+  const lines = text
+    .replace(/<[^>]+>/g, '\n')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 1);
+
+  const noise = ['copyright', 'quantity', 'add to cart', 'out of stock', 'contact', 'faq', 'shipping', 'documentation', 'dismiss', 'subscribe', 'cart', 'order now', 'choose us', 'evolve', 'please contact', 'how ', 'are your', 'all products', 'all orders', 'all sales', 'why choose', 'see our'];
+  const priceRx = /^\$[\d,]+(?:\.\d{2})?$/;
+  const dosageRx = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:[\s/][\d\s\w]*)?$/i;
+
+  const results = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.length < 2 || line.length > 80) continue;
+    if (!line.match(/^[A-Za-z]/)) continue;
+    if (noise.some(n => line.toLowerCase().includes(n))) continue;
+    if (line.includes('{') || line.includes('http')) continue;
+
+    // Look ahead up to 8 lines for a price
+    let dosage = '';
+    let price = '';
+    for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+      const next = lines[j].trim();
+      if (!dosage && dosageRx.test(next)) dosage = next;
+      if (!price && priceRx.test(next)) { price = next; break; }
+    }
+
+    if (price) {
+      results.push([line, dosage, price].filter(Boolean).join(' — '));
+    }
+  }
+
+  return [...new Set(results)].slice(0, 25);
 }
