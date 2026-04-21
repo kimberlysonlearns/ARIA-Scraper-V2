@@ -306,7 +306,7 @@ async function tryFeed(base) {
   return [];
 }
 
-// ── PATH E: Plain text (static sites like NCRP) ──────────────────────
+// ── PATH E: Plain text — handles NCRP (static), Wix, Shopify, etc ────
 function extractPlainText(html) {
   let text = html
     .replace(/&#36;/g, '$').replace(/&amp;/g, '&')
@@ -317,27 +317,58 @@ function extractPlainText(html) {
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
     .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+
   const lines = text.replace(/<[^>]+>/g, '\n').split('\n').map(l => l.trim()).filter(l => l.length > 1);
+
   const noise = ['copyright', 'quantity', 'add to cart', 'out of stock', 'contact', 'faq',
     'shipping', 'documentation', 'dismiss', 'subscribe', 'cart', 'order now', 'choose us',
     'evolve', 'please contact', 'how ', 'are your', 'all products', 'all orders', 'all sales',
-    'why choose', 'see our', 'follow', 'now available'];
-  const priceRx = /^\$[\d,]+(?:\.\d{2})?$/;
+    'why choose', 'see our', 'follow', 'now available', 'view product', 'create account',
+    'my account', 'privacy policy', 'terms of use', 'return policy', 'bottom of page', 'top of page'];
+
+  // Matches: $49.99 | C$49.99 | CAD$49.99 | $49 | from $49.99
+  const priceRx = /^(?:(?:regular\s*price|sale\s*price|price\s*from|from|price)\s*)?(?:[A-Z]{0,3})\$[\d,]+(?:\.\d{2})?$/i;
+  // Extract just the numeric price from a matched line
+  const extractPrice = (s) => {
+    const m = s.match(/([A-Z]{0,3}\$[\d,]+(?:\.\d{2})?)/i);
+    if (!m) return null;
+    // Normalize C$ CAD$ etc → $ and remove double $$
+    return m[1].replace(/^[A-Za-z]+\$/, '$');
+  };
   const dosageRx = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:\s*(?:Vial|Aqueous Solution|Solution|Tablets?|Caps?|\/)\s*[\d\s\w/.]*)?$/i;
+
   const results = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line.length < 2 || line.length > 80) continue;
+    if (line.length < 2 || line.length > 100) continue;
     if (!line.match(/^[A-Za-z]/)) continue;
+    // Skip lines that are just price strings e.g. "Regular PriceC$54.99Sale PriceC$44.99"
+    if (line.match(/^(?:regular\s*price|sale\s*price|price\s*from|pricefrom|from\s*[A-Z]*\$)/i)) continue;
     if (noise.some(n => line.toLowerCase().includes(n))) continue;
     if (line.includes('{') || line.includes('http')) continue;
+
+    // Check if line itself contains an inline price e.g. "BPC-157 PriceFrom C$49.99"
+    const inlinePrice = line.match(/(?:regular\s*price|sale\s*price|price\s*from|from|price)\s*(?:[A-Z]{0,3})\$([\d,]+(?:\.\d{2})?)/i);
+    if (inlinePrice) {
+      const name = line.replace(/(?:regular\s*price|sale\s*price|price\s*from|from\s*c?\$[\d.]+|price\s*c?\$[\d.]+).*/i, '').trim();
+      const price = `$${inlinePrice[1]}`;
+      if (name.length > 2 && name.length < 100) {
+        results.push(`${name} — ${price}`);
+        continue;
+      }
+    }
+
+    // Otherwise look ahead for price on nearby line
     let dosage = '', price = '';
     for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
       const next = lines[j].trim();
       if (!dosage && dosageRx.test(next)) dosage = next;
-      if (!price && priceRx.test(next)) { price = next; break; }
+      if (!price && priceRx.test(next)) {
+        price = extractPrice(next) || next;
+        break;
+      }
     }
     if (price) results.push([line, dosage, price].filter(Boolean).join(' — '));
   }
-  return [...new Set(results)].slice(0, 25);
+  return [...new Set(results)].slice(0, 30);
 }
