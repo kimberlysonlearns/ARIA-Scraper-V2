@@ -312,59 +312,75 @@ function extractPlainText(html) {
     .replace(/&#36;/g, '$').replace(/&amp;/g, '&')
     .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
     .replace(/&\w+;/g, ' ');
+
+  // Remove noisy sections entirely before processing
   text = text
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '');
 
   const lines = text.replace(/<[^>]+>/g, '\n').split('\n').map(l => l.trim()).filter(l => l.length > 1);
 
-  const noise = ['copyright', 'quantity', 'add to cart', 'out of stock', 'contact', 'faq',
-    'shipping', 'documentation', 'dismiss', 'subscribe', 'cart', 'order now', 'choose us',
-    'evolve', 'please contact', 'how ', 'are your', 'all products', 'all orders', 'all sales',
-    'why choose', 'see our', 'follow', 'now available', 'view product', 'create account',
-    'my account', 'privacy policy', 'terms of use', 'return policy', 'bottom of page', 'top of page'];
+  // Contains-noise: skip any line containing these phrases
+  const containsNoise = ['copyright', 'quantity', 'add to cart', 'out of stock', 'faq',
+    'documentation', 'dismiss', 'subscribe', 'order now', 'choose us', 'please contact',
+    'are your products', 'all products listed', 'all orders', 'all sales', 'why choose',
+    'see our', 'now available', 'view product', 'create account', 'my account',
+    'privacy policy', 'terms of use', 'return policy', 'bottom of page', 'top of page',
+    'orders placed', 'ships the same', 'free shipping', 'use tab to navigate',
+    'bacteriostatic water', 'reconstitut', 'for reconstitut', 'multiple-dose',
+    'benzyl alcohol', 'sterile', 'nonpyrogenic'];
 
-  // Single words that appear as standalone labels on Wix/Shopify — never product names
-  const exactNoise = ['sale', 'price', 'new', 'new arrival', 'recommended', 'products', 'search',
-    'home', 'more', 'spray', 'shop', 'skincare', 'skin care', 'company', 'in stock'];
+  // Exact-match noise: skip lines that ARE exactly one of these (single word/phrase UI labels)
+  const exactNoise = new Set(['sale', 'price', 'new', 'new arrival', 'recommended', 'products',
+    'search', 'home', 'more', 'spray', 'shop', 'skincare', 'skin care', 'company',
+    'in stock', 'peptide', 'warehouse', 'warehouse.ca', 'peptide warehouse',
+    'contact us', 'more', 'bacteriostatic water']);
 
-  // Matches: $49.99 | C$49.99 | CAD$49.99 | $49 | from $49.99
-  const priceRx = /^(?:(?:regular\s*price|sale\s*price|price\s*from|from|price)\s*)?(?:[A-Z]{0,3})\$[\d,]+(?:\.\d{2})?$/i;
-  // Extract just the numeric price from a matched line
+  // Lines that are raw price strings — skip as product names e.g. "C$54.99"
+  const isPriceLine = (s) => /^[A-Za-z]{0,3}\$[\d,]+(?:\.\d{2})?$/.test(s);
+
+  // Lines starting with price keywords — skip
+  const startsWithPriceWord = (s) => /^(?:regular\s*price|sale\s*price|price\s*from|pricefrom|from\s*[A-Za-z]*\$)/i.test(s);
+
+  // Valid product name: starts with letter, 3–80 chars, no URLs, no code chars
+  const isValidName = (s) => s.length >= 3 && s.length <= 80 && /^[A-Za-z]/.test(s) && !s.includes('{') && !s.includes('http') && !s.includes('@') && !s.includes('(Monday') && !/^\d/.test(s);
+
+  // Price patterns: $49.99 | C$49.99 | CAD$49.99 | PriceFrom C$49.99
+  const priceRx = /^(?:(?:regular\s*price|sale\s*price|price\s*from|from|price)\s*)?(?:[A-Za-z]{0,3})\$[\d,]+(?:\.\d{2})?$/i;
   const extractPrice = (s) => {
-    const m = s.match(/([A-Z]{0,3}\$[\d,]+(?:\.\d{2})?)/i);
-    if (!m) return null;
-    // Normalize C$ CAD$ etc → $ and remove double $$
-    return m[1].replace(/^[A-Za-z]+\$/, '$');
+    const m = s.match(/[A-Za-z]{0,3}\$([\d,]+(?:\.\d{2})?)/);
+    return m ? `$${m[1]}` : null;
   };
+
+  // Dosage: 10 mg | 10ml Vial / 500mg/ml | 12.5 mg / 50 Tablets
   const dosageRx = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:\s*(?:Vial|Aqueous Solution|Solution|Tablets?|Caps?|\/)\s*[\d\s\w/.]*)?$/i;
 
   const results = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line.length < 2 || line.length > 100) continue;
-    if (!line.match(/^[A-Za-z]/)) continue;
-    // Skip lines that are just price strings e.g. "Regular PriceC$54.99Sale PriceC$44.99"
-    if (line.match(/^(?:regular\s*price|sale\s*price|price\s*from|pricefrom|from\s*[A-Z]*\$)/i)) continue;
-    // Skip standalone label words that are never product names
-    if (exactNoise.includes(line.toLowerCase())) continue;
-    if (noise.some(n => line.toLowerCase().includes(n))) continue;
-    if (line.includes('{') || line.includes('http')) continue;
+    const lower = line.toLowerCase();
+
+    // Basic filters
+    if (!isValidName(line)) continue;
+    if (isPriceLine(line)) continue;
+    if (startsWithPriceWord(line)) continue;
+    if (exactNoise.has(lower)) continue;
+    if (containsNoise.some(n => lower.includes(n))) continue;
 
     // Check if line itself contains an inline price e.g. "BPC-157 PriceFrom C$49.99"
-    const inlinePrice = line.match(/(?:regular\s*price|sale\s*price|price\s*from|from|price)\s*(?:[A-Z]{0,3})\$([\d,]+(?:\.\d{2})?)/i);
+    const inlinePrice = line.match(/(?:regular\s*price|sale\s*price|price\s*from|from|price)\s*(?:[A-Za-z]{0,3})\$([\d,]+(?:\.\d{2})?)/i);
     if (inlinePrice) {
-      const name = line.replace(/(?:regular\s*price|sale\s*price|price\s*from|from\s*c?\$[\d.]+|price\s*c?\$[\d.]+).*/i, '').trim();
-      const price = `$${inlinePrice[1]}`;
-      if (name.length > 2 && name.length < 100) {
-        results.push(`${name} — ${price}`);
+      const name = line.replace(/(?:regular\s*price|sale\s*price|price\s*from|from\s*[A-Za-z]*\$[\d.]+|price\s*[A-Za-z]*\$[\d.]+).*/i, '').trim();
+      if (isValidName(name)) {
+        results.push(`${name} — $${inlinePrice[1]}`);
         continue;
       }
     }
 
-    // Otherwise look ahead for price on nearby line
+    // Look ahead up to 8 lines for dosage + price
     let dosage = '', price = '';
     for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
       const next = lines[j].trim();
