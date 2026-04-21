@@ -272,7 +272,7 @@ function extractFromPlainText(html) {
 
   const noise = ['copyright', 'quantity', 'add to cart', 'out of stock', 'contact', 'faq', 'shipping', 'documentation', 'dismiss', 'subscribe', 'cart', 'order now', 'choose us', 'evolve', 'please contact', 'how ', 'are your', 'all products', 'all orders', 'all sales', 'why choose', 'see our'];
   const priceRx = /^\$[\d,]+(?:\.\d{2})?$/;
-  const dosageRx = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:[\s/][\d\s\w]*)?$/i;
+  const dosageRx = /^\d+(?:\.\d+)?\s*(?:mg|mcg|ml|g|iu)(?:\s*(?:Vial|Aqueous Solution|Solution|Tablets?|Caps?|\/)\s*[\d\s\w/.]*)?$/i;
 
   const results = [];
   for (let i = 0; i < lines.length; i++) {
