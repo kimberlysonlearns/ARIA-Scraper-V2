@@ -233,6 +233,112 @@ export default function Home() {
     return best;
   })();
 
+  // ── Export functions ─────────────────────────────────────────────
+  const exportCSV = () => {
+    const allSites = [...new Set(comparison.flatMap(p => Object.keys(p.sites)))];
+    const headers = ['Product', 'Category', ...allSites, 'Lowest Price', 'Highest Price', 'Avg Price'];
+    const rows = comparison.map(p => {
+      const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
+      const low = prices.length ? `$${Math.min(...prices).toFixed(2)}` : '';
+      const high = prices.length ? `$${Math.max(...prices).toFixed(2)}` : '';
+      const avg = prices.length ? `$${(prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(2)}` : '';
+      const sitePrices = allSites.map(site => p.sites[site]?.price || '—');
+      return [p.name, p.category, ...sitePrices, low, high, avg];
+    });
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ARIA_Analysis_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportHTML = () => {
+    const allSites = [...new Set(comparison.flatMap(p => Object.keys(p.sites)))];
+    const date = new Date().toLocaleDateString();
+    const priceChangesHTML = priceChanges.length > 0 ? `
+      <h2>Price Changes Detected</h2>
+      <table><tr><th>Product</th><th>Competitor</th><th>From</th><th>To</th><th>Change</th><th>Date</th></tr>
+      ${priceChanges.map(ch => `<tr><td>${ch.product}</td><td>${ch.competitor}</td><td style="text-decoration:line-through">${ch.from}</td><td style="color:${ch.direction==='down'?'green':'red'};font-weight:bold">${ch.to}</td><td style="color:${ch.direction==='down'?'green':'red'}">${ch.direction==='down'?'↓':'↑'}${Math.abs(ch.pct)}%</td><td>${ch.detectedAt?new Date(ch.detectedAt).toLocaleDateString():''}</td></tr>`).join('')}
+      </table>` : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>ARIA Analysis Report — ${date}</title>
+<style>
+  body{font-family:'Helvetica Neue',Arial,sans-serif;background:#fff;color:#111;padding:40px;max-width:1100px;margin:0 auto}
+  h1{font-size:28px;font-weight:300;letter-spacing:2px;text-transform:uppercase;border-bottom:2px solid #f5e6e0;padding-bottom:12px;margin-bottom:8px}
+  .meta{font-size:12px;color:#999;margin-bottom:32px}
+  h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#444;margin:28px 0 12px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+  .stat{background:#f8f8f8;border-radius:8px;padding:16px}
+  .stat-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px}
+  .stat-value{font-size:22px;font-weight:300;color:#111}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px}
+  th{background:#1a1a1a;color:#f5e6e0;padding:10px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  td{padding:9px 12px;border-bottom:1px solid #f0f0f0}
+  tr:nth-child(even) td{background:#fafafa}
+  .cat{font-size:10px;padding:2px 8px;border-radius:99px;background:#eee;color:#555}
+  .low{color:#2a7a2a;font-weight:600}
+  .insight{padding:12px 16px;border-radius:6px;margin-bottom:10px;font-size:13px}
+  .insight.green{background:#f0f9f0;border-left:3px solid #4a9a4a;color:#2a5a2a}
+  .insight.red{background:#fdf0f0;border-left:3px solid #9a4a4a;color:#5a2a2a}
+  .insight.blue{background:#f0f0f9;border-left:3px solid #4a4a9a;color:#2a2a5a}
+  .footer{margin-top:40px;font-size:11px;color:#ccc;border-top:1px solid #eee;padding-top:16px}
+</style></head><body>
+<h1>ARIA Competitive Analysis Report</h1>
+<div class="meta">Generated: ${date} · ${comparison.length} products · ${allSites.length} competitors</div>
+<div class="stats">
+  <div class="stat"><div class="stat-label">Cheapest Overall</div><div class="stat-value" style="font-size:16px;color:#2a7a2a">${cheapestSite||'—'}</div></div>
+  <div class="stat"><div class="stat-label">Products Tracked</div><div class="stat-value">${comparison.length}</div></div>
+  <div class="stat"><div class="stat-label">Price Range</div><div class="stat-value" style="font-size:16px">${allPrices.length?`$${Math.min(...allPrices).toFixed(2)}–$${Math.max(...allPrices).toFixed(2)}`:'—'}</div></div>
+  <div class="stat"><div class="stat-label">Price Changes</div><div class="stat-value" style="color:${priceChanges.length>0?'#cc7700':'#111'}">${priceChanges.length}</div></div>
+</div>
+<h2>Key Insights</h2>
+${cheapestSite?`<div class="insight green"><strong>Cheapest overall:</strong> ${cheapestSite} has the lowest average pricing across all tracked products.</div>`:''}
+${(() => {
+  const overpriced = comparison.filter(p => {
+    const prices = Object.values(p.sites).map(s=>s.value).filter(Boolean);
+    if (prices.length < 2) return false;
+    const avg = prices.reduce((a,b)=>a+b,0)/prices.length;
+    return Math.max(...prices) > avg * 1.3;
+  });
+  return overpriced.length > 0 ? `<div class="insight red"><strong>Price gaps detected:</strong> ${overpriced.slice(0,3).map(p=>p.name).join(', ')} show 30%+ price variation across sites.</div>` : '';
+})()}
+${(() => {
+  const cats = {};
+  comparison.forEach(p => { cats[p.category] = (cats[p.category]||0)+1; });
+  const top = Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
+  return top ? `<div class="insight blue"><strong>Most competitive category:</strong> ${top[0]} with ${top[1]} products tracked.</div>` : '';
+})()}
+${priceChangesHTML}
+<h2>Product Comparison Table</h2>
+<table>
+<tr><th>Product</th><th>Category</th>${allSites.map(s=>`<th>${s}</th>`).join('')}<th>Lowest</th><th>Highest</th><th>Avg</th></tr>
+${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
+  const prices = Object.values(p.sites).map(s=>s.value).filter(Boolean);
+  const minPrice = prices.length ? Math.min(...prices) : null;
+  const low = prices.length ? `$${Math.min(...prices).toFixed(2)}` : '—';
+  const high = prices.length ? `$${Math.max(...prices).toFixed(2)}` : '—';
+  const avg = prices.length ? `$${(prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(2)}` : '—';
+  return `<tr><td>${p.name}</td><td><span class="cat">${p.category}</span></td>${allSites.map(site => {
+    const sd = p.sites[site];
+    const isLow = sd?.value && sd.value === minPrice && prices.length > 1;
+    return `<td${isLow?' class="low"':''}>${sd ? sd.price+(isLow?' ★':'') : '—'}</td>`;
+  }).join('')}<td class="low">${low}</td><td>${high}</td><td>${avg}</td></tr>`;
+}).join('')}
+</table>
+<div class="footer">ARIA Competitive Intelligence Platform · aria-scraper-v2.vercel.app · Report generated ${date}</div>
+</body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ARIA_Analysis_${new Date().toISOString().slice(0,10)}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Ranked competitors
   const rankedCompetitors = [...competitors]
     .filter(c => scrapeResults[c.id]?.success)
@@ -509,7 +615,19 @@ export default function Home() {
         {activePage === 'analysis' && (
           <div>
             <h1 style={H1}>ANALYSIS</h1>
-            <p style={SUB}>Price comparison and change detection</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
+              <p style={{ ...SUB, margin: 0 }}>Price comparison and change detection</p>
+              {comparison.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button style={{ ...BTN, fontSize: '11px', padding: '7px 14px' }} onClick={exportCSV}>
+                    EXPORT CSV
+                  </button>
+                  <button style={{ ...BTN, fontSize: '11px', padding: '7px 14px' }} onClick={exportHTML}>
+                    EXPORT REPORT
+                  </button>
+                </div>
+              )}
+            </div>
 
             {comparison.length === 0 && (
               <div style={CARD}>
