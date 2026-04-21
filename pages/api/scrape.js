@@ -173,9 +173,11 @@ function extractDirectProducts(html) {
 
   // For each product heading, look for dosage and price nearby
   headings.forEach(heading => {
-    // Get the next 800 characters after the heading
-    const nearby = cleaned.substring(heading.index, heading.index + 800);
-    const nearbyText = decodeHTML(nearby.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
+    // Get the next 1000 characters after the heading
+    // IMPORTANT: decode HTML entities FIRST (so &#36; becomes $) THEN strip tags
+    const nearby = cleaned.substring(heading.index, heading.index + 1000);
+    const nearbyDecoded = decodeHTML(nearby);
+    const nearbyText = nearbyDecoded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
     // Extract dosage — e.g. "10 mg", "10ml", "12.5 mg / 50 Tablets", "30 ml"
     const dosageMatch = nearbyText.match(
