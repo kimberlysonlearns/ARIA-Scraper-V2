@@ -362,20 +362,21 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
         .nav-btn:hover { background: rgba(232,168,184,0.18) !important; color: #f5c8d4 !important; }
         .nav-btn.active { background: #f5e6e0 !important; color: #181818 !important; }
       `}</style>
-      <aside style={{ width: '240px', minWidth: '240px', background: '#141414', padding: '0', borderRight: '1px solid #252525', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', flexShrink: 0 }}>
+      <aside style={{ width: '260px', minWidth: '260px', background: '#141414', padding: '0', borderRight: '1px solid #252525', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', flexShrink: 0 }}>
 
         {/* Logo block */}
-        <div style={{ padding: '28px 20px 22px', borderBottom: '1px solid #222' }}>
-          <svg width="200" height="100" viewBox="0 0 200 100" fill="none">
-            <rect x="4" y="48" width="14" height="24" rx="2.5" fill="#f5e6e0" opacity="0.2"/>
-            <rect x="22" y="30" width="14" height="42" rx="2.5" fill="#e8a8b8" opacity="0.5"/>
-            <rect x="40" y="10" width="14" height="62" rx="2.5" fill="#e8a8b8"/>
-            <rect x="58" y="10" width="14" height="62" rx="2.5" fill="#e8a8b8" opacity="0.75"/>
-            <rect x="76" y="30" width="14" height="42" rx="2.5" fill="#e8a8b8" opacity="0.5"/>
-            <rect x="94" y="48" width="14" height="24" rx="2.5" fill="#f5e6e0" opacity="0.2"/>
-            <rect x="30" y="36" width="58" height="9" rx="2.5" fill="#f5e6e0" opacity="0.28"/>
-            <text x="118" y="52" fontFamily="'Century Gothic', 'Trebuchet MS', sans-serif" fontSize="34" fontWeight="600" fill="#f5e6e0" letterSpacing="5">ARIA</text>
-            <text x="118" y="67" fontFamily="'Century Gothic', 'Trebuchet MS', sans-serif" fontSize="9.5" fill="#999" letterSpacing="0.3">Artificial Research Intelligent Agent</text>
+        <div style={{ padding: '24px 18px 18px', borderBottom: '1px solid #222' }}>
+          <svg width="224" height="96" viewBox="0 0 224 96" fill="none">
+            <rect x="4" y="46" width="13" height="22" rx="2.5" fill="#f5e6e0" opacity="0.2"/>
+            <rect x="21" y="29" width="13" height="39" rx="2.5" fill="#e8a8b8" opacity="0.5"/>
+            <rect x="38" y="10" width="13" height="58" rx="2.5" fill="#e8a8b8"/>
+            <rect x="55" y="10" width="13" height="58" rx="2.5" fill="#e8a8b8" opacity="0.75"/>
+            <rect x="72" y="29" width="13" height="39" rx="2.5" fill="#e8a8b8" opacity="0.5"/>
+            <rect x="89" y="46" width="13" height="22" rx="2.5" fill="#f5e6e0" opacity="0.2"/>
+            <rect x="28" y="34" width="56" height="8" rx="2" fill="#f5e6e0" opacity="0.28"/>
+            <text x="112" y="50" fontFamily="'Century Gothic','Trebuchet MS',sans-serif" fontSize="32" fontWeight="600" fill="#f5e6e0" letterSpacing="5">ARIA</text>
+            <text x="112" y="66" fontFamily="'Century Gothic','Trebuchet MS',sans-serif" fontSize="9" fill="#999" letterSpacing="0.3">Artificial Research</text>
+            <text x="112" y="79" fontFamily="'Century Gothic','Trebuchet MS',sans-serif" fontSize="9" fill="#999" letterSpacing="0.3">Intelligent Agent</text>
           </svg>
         </div>
 
@@ -862,18 +863,33 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
               const getK = (c) => Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1] || {};
 
+              const F = "'Century Gothic', 'Trebuchet MS', sans-serif";
               const SEC = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', marginBottom: '14px', overflow: 'hidden' };
-              const SEC_HEAD = { padding: '10px 16px', background: '#1e1e1e', borderBottom: '1px solid #2a2a2a', fontSize: '10px', fontWeight: '600', color: '#aaa', textTransform: 'uppercase', letterSpacing: '1px' };
-              const ROW_LABEL = { padding: '12px 14px', fontSize: '14px', color: '#888', background: '#161616', width: '170px', minWidth: '170px', verticalAlign: 'top', borderTop: '1px solid #222' };
+              const SEC_HEAD = { padding: '10px 16px', background: '#1e1e1e', borderBottom: '1px solid #2a2a2a', fontSize: '11px', fontFamily: F, fontWeight: '600', color: '#bbb', textTransform: 'uppercase', letterSpacing: '1px' };
+              const ROW_LABEL = { padding: '14px 16px', fontSize: '13px', fontFamily: F, color: '#aaa', background: '#161616', width: '170px', minWidth: '170px', verticalAlign: 'top', borderTop: '1px solid #222' };
               const colW = `${Math.floor(70 / competitors.length)}%`;
-              const COL_HEAD = { padding: '9px 12px', fontSize: '10px', color: '#aaa', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', borderLeft: '1px solid #2a2a2a', width: colW, background: '#1a1a1a' };
-              const CELL = { padding: '12px 12px', fontSize: '14px', color: '#ddd', borderLeft: '1px solid #222', borderTop: '1px solid #222', verticalAlign: 'top', width: colW };
+              const COL_HEAD = { padding: '10px 14px', fontSize: '11px', fontFamily: F, color: '#bbb', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', borderLeft: '1px solid #2a2a2a', width: colW, background: '#1a1a1a' };
+              const CELL = { padding: '14px 14px', fontSize: '13px', fontFamily: F, color: '#ddd', borderLeft: '1px solid #222', borderTop: '1px solid #222', verticalAlign: 'top', width: colW };
+
+              // Pastel pill colours — soft, light backgrounds with muted text
+              const PILL_STYLES = {
+                green:  { bg: '#d4edda', border: '#a8d5b5', color: '#2d6a4f' },
+                amber:  { bg: '#fde8c8', border: '#f5c98a', color: '#7d4e0f' },
+                blue:   { bg: '#d0e4f7', border: '#a0c4e8', color: '#1a4a7a' },
+                teal:   { bg: '#c8eee8', border: '#8ad5c8', color: '#0f5a4a' },
+                pink:   { bg: '#f7d6e0', border: '#e8a8b8', color: '#7a2a3a' },
+                purple: { bg: '#e0d4f0', border: '#c0a8e0', color: '#4a2a7a' },
+                gray:   { bg: '#e8e8e8', border: '#c8c8c8', color: '#4a4a4a' },
+              };
 
               const Pill = ({ text, type }) => {
-                const s = { green: { bg:'#1a2a1a', border:'#4a9a4a', color:'#7acc7a' }, amber: { bg:'#2a1e0a', border:'#8a6a2a', color:'#ccaa7a' }, blue: { bg:'#1a1a2a', border:'#4a4a9a', color:'#9a9acc' }, teal: { bg:'#0a1e1e', border:'#2a7a7a', color:'#7acccc' }, gray: { bg:'#1e1e1e', border:'#333', color:'#888' } }[type] || { bg:'#1e1e1e', border:'#333', color:'#888' };
-                return <span style={{ display:'inline-block', fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:s.bg, border:`1px solid ${s.border}`, color:s.color, marginRight:'4px', marginBottom:'4px', lineHeight:'1.6' }}>{text}</span>;
+                const s = PILL_STYLES[type] || PILL_STYLES.gray;
+                return <span style={{ display: 'inline-block', fontSize: '11px', fontFamily: F, padding: '3px 10px', borderRadius: '99px', background: s.bg, border: `1px solid ${s.border}`, color: s.color, marginRight: '5px', marginBottom: '5px', lineHeight: '1.6', fontWeight: '500' }}>{text}</span>;
               };
-              const None = () => <span style={{ color:'#444', fontSize: '14px' }}>—</span>;
+
+              const None = () => <span style={{ color: '#555', fontSize: '13px', fontFamily: F }}>—</span>;
+              const PlainText = ({ text, color }) => <span style={{ fontSize: '13px', fontFamily: F, color: color || '#ccc', lineHeight: '1.6' }}>{text}</span>;
+              const CodePill = ({ text }) => <span style={{ fontFamily: 'monospace', fontSize: '12px', padding: '3px 10px', background: '#d0eee8', border: '1px solid #8ad0c0', borderRadius: '6px', color: '#0f5a4a', fontWeight: '600' }}>{text}</span>;
 
               const SectionTable = ({ title, rows }) => (
                 <div style={SEC}>
@@ -901,36 +917,36 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 <>
                   <SectionTable title="Shipping" rows={[
                     { label: 'Free over', render: (k) => k.freeShipping ? <Pill text={`Free over $${k.freeShipping}`} type="green" /> : <None /> },
-                    { label: 'Flat rate / other', render: (k) => k.flatShipping ? <span style={{ color:'#ccc', fontSize: '14px' }}>{k.flatShipping}</span> : <None /> },
-                    { label: 'Dispatch speed', render: (k) => k.dispatchSpeed ? <span style={{ color:'#cccc7a', fontSize: '14px' }}>{k.dispatchSpeed}</span> : <None /> },
+                    { label: 'Flat rate / other', render: (k) => k.flatShipping ? <PlainText text={k.flatShipping} /> : <None /> },
+                    { label: 'Dispatch speed', render: (k) => k.dispatchSpeed ? <Pill text={k.dispatchSpeed} type="teal" /> : <None /> },
                   ]} />
 
                   <SectionTable title="Sales & Discounts" rows={[
                     { label: 'Active sales', render: (k) => (k.activeSales||[]).length > 0 ? <div>{(k.activeSales||[]).map((s,i) => <Pill key={i} text={s} type="amber" />)}</div> : <None /> },
                     { label: 'Bundle / multi-pack', render: (k) => (k.bundles||[]).length > 0 ? <div>{(k.bundles||[]).map((s,i) => <Pill key={i} text={s} type="green" />)}</div> : <None /> },
-                    { label: 'Promo code', render: (k) => k.promoCode ? <span style={{ fontFamily:'monospace', fontSize: '14px', padding:'3px 8px', background:'#0a1e1e', border:'1px solid #2a7a7a', borderRadius:'5px', color:'#7acccc' }}>{k.promoCode}</span> : <None /> },
+                    { label: 'Promo code', render: (k) => k.promoCode ? <CodePill text={k.promoCode} /> : <None /> },
                     { label: 'Subscription', render: () => <None /> },
                   ]} />
 
                   <SectionTable title="Trust & Quality" rows={[
-                    { label: 'Lab testing', render: (k) => k.labTesting ? <span style={{ color:'#7acc7a', fontSize: '14px', lineHeight:'1.6' }}>{k.labTesting}</span> : <None /> },
-                    { label: 'Product count', render: (k, c) => { const sc = (scrapeResults[c.id]?.insights?.[0]?.items||[]).length; const d = sc > 0 ? sc : k.productCount; return <span style={{ fontSize:'16px', color:'#f5e6e0', fontWeight:'500' }}>{d||'—'}</span>; } },
-                    { label: 'Unique features', render: (k) => (k.uniqueFeatures||[]).length > 0 ? <div>{(k.uniqueFeatures||[]).map((f,i) => <Pill key={i} text={f} type="blue" />)}</div> : <None /> },
+                    { label: 'Lab testing', render: (k) => k.labTesting ? <Pill text={k.labTesting} type="green" /> : <None /> },
+                    { label: 'Product count', render: (k, c) => { const sc = (scrapeResults[c.id]?.insights?.[0]?.items||[]).length; const d = sc > 0 ? sc : k.productCount; return <span style={{ fontSize: '22px', fontFamily: F, color: '#f5e6e0', fontWeight: '500' }}>{d || '—'}</span>; } },
+                    { label: 'Unique features', render: (k) => (k.uniqueFeatures||[]).length > 0 ? <div>{(k.uniqueFeatures||[]).map((f,i) => <Pill key={i} text={f} type="purple" />)}</div> : <None /> },
                   ]} />
 
-                  <div style={{ ...SEC, border:'1px solid #3a3a5a' }}>
-                    <div style={{ ...SEC_HEAD, color:'#9a9acc' }}>Market Gaps — opportunities none of your competitors are taking</div>
-                    <div style={{ padding:'16px', display:'grid', gap:'10px' }}>
+                  <div style={{ ...SEC, border: '1px solid #3a3a5a' }}>
+                    <div style={{ ...SEC_HEAD, color: '#c0b8e0' }}>Market Gaps — opportunities none of your competitors are taking</div>
+                    <div style={{ padding: '16px', display: 'grid', gap: '10px' }}>
                       {[
-                        { title:'Subscription pricing', body:'None of the 4 tracked competitors offer recurring orders. First-mover advantage available — recurring revenue and customer lock-in.' },
-                        { title:'Multi-pack bundles', body:'Only Growth Guys offers volume discounts. Purity Peptides, NCRP and Peptide Warehouse leave average order value on the table.' },
-                        { title:'Public lab results page', body:'Only Growth Guys publishes a dedicated per-batch results page. A public transparency page is a proven trust differentiator.' },
+                        { title: 'Subscription pricing', body: 'None of the 4 tracked competitors offer recurring orders. First-mover advantage available — recurring revenue and customer lock-in.' },
+                        { title: 'Multi-pack bundles', body: 'Only Growth Guys offers volume discounts. Purity Peptides, NCRP and Peptide Warehouse leave average order value on the table.' },
+                        { title: 'Public lab results page', body: 'Only Growth Guys publishes a dedicated per-batch results page. A public transparency page is a proven trust differentiator.' },
                       ].map((g, i) => (
-                        <div key={i} style={{ padding:'12px 14px', background:'#141420', borderRadius:'6px', border:'1px solid #2a2a4a', display:'flex', gap:'14px', alignItems:'flex-start' }}>
-                          <div style={{ width:'6px', minWidth:'6px', height:'6px', borderRadius:'50%', background:'#5a5a9a', marginTop:'5px' }} />
+                        <div key={i} style={{ padding: '12px 14px', background: '#141420', borderRadius: '6px', border: '1px solid #2a2a4a', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                          <div style={{ width: '6px', minWidth: '6px', height: '6px', borderRadius: '50%', background: '#9a8ac8', marginTop: '6px' }} />
                           <div>
-                            <p style={{ fontSize: '14px', color:'#bbbbd0', margin:'0 0 4px', fontWeight:'500' }}>{g.title}</p>
-                            <p style={{ fontSize: '14px', color:'#888', margin:0, lineHeight:'1.6' }}>{g.body}</p>
+                            <p style={{ fontSize: '13px', fontFamily: F, color: '#d0c8f0', margin: '0 0 4px', fontWeight: '600' }}>{g.title}</p>
+                            <p style={{ fontSize: '13px', fontFamily: F, color: '#999', margin: 0, lineHeight: '1.7' }}>{g.body}</p>
                           </div>
                         </div>
                       ))}
