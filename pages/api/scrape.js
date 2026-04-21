@@ -326,6 +326,10 @@ function extractPlainText(html) {
     'why choose', 'see our', 'follow', 'now available', 'view product', 'create account',
     'my account', 'privacy policy', 'terms of use', 'return policy', 'bottom of page', 'top of page'];
 
+  // Single words that appear as standalone labels on Wix/Shopify — never product names
+  const exactNoise = ['sale', 'price', 'new', 'new arrival', 'recommended', 'products', 'search',
+    'home', 'more', 'spray', 'shop', 'skincare', 'skin care', 'company', 'in stock'];
+
   // Matches: $49.99 | C$49.99 | CAD$49.99 | $49 | from $49.99
   const priceRx = /^(?:(?:regular\s*price|sale\s*price|price\s*from|from|price)\s*)?(?:[A-Z]{0,3})\$[\d,]+(?:\.\d{2})?$/i;
   // Extract just the numeric price from a matched line
@@ -344,6 +348,8 @@ function extractPlainText(html) {
     if (!line.match(/^[A-Za-z]/)) continue;
     // Skip lines that are just price strings e.g. "Regular PriceC$54.99Sale PriceC$44.99"
     if (line.match(/^(?:regular\s*price|sale\s*price|price\s*from|pricefrom|from\s*[A-Z]*\$)/i)) continue;
+    // Skip standalone label words that are never product names
+    if (exactNoise.includes(line.toLowerCase())) continue;
     if (noise.some(n => line.toLowerCase().includes(n))) continue;
     if (line.includes('{') || line.includes('http')) continue;
 
