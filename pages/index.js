@@ -366,29 +366,17 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
         {/* Logo block */}
         <div style={{ padding: '28px 20px 22px', borderBottom: '1px solid #222' }}>
-          {/* Icon + ARIA wordmark */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
-            <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#1e1218', border: '1px solid #e8a8b8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="28" height="28" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="10" r="2.5" fill="#e8a8b8"/>
-                <circle cx="3.5" cy="5" r="1.5" fill="#f5e6e0" opacity="0.7"/>
-                <circle cx="16.5" cy="5" r="1.5" fill="#f5e6e0" opacity="0.7"/>
-                <circle cx="3.5" cy="15" r="1.5" fill="#f5e6e0" opacity="0.7"/>
-                <circle cx="16.5" cy="15" r="1.5" fill="#f5e6e0" opacity="0.7"/>
-                <line x1="3.5" y1="5" x2="10" y2="10" stroke="#e8a8b8" strokeWidth="0.75" opacity="0.6"/>
-                <line x1="16.5" y1="5" x2="10" y2="10" stroke="#e8a8b8" strokeWidth="0.75" opacity="0.6"/>
-                <line x1="3.5" y1="15" x2="10" y2="10" stroke="#e8a8b8" strokeWidth="0.75" opacity="0.6"/>
-                <line x1="16.5" y1="15" x2="10" y2="10" stroke="#e8a8b8" strokeWidth="0.75" opacity="0.6"/>
-                <line x1="3.5" y1="5" x2="3.5" y2="15" stroke="#f5e6e0" strokeWidth="0.5" opacity="0.3"/>
-                <line x1="16.5" y1="5" x2="16.5" y2="15" stroke="#f5e6e0" strokeWidth="0.5" opacity="0.3"/>
-              </svg>
-            </div>
-            <div style={{ fontSize: '26px', color: '#f5e6e0', letterSpacing: '5px', fontWeight: '600', lineHeight: 1 }}>ARIA</div>
-          </div>
-          {/* Full name */}
-          <div style={{ fontSize: '12px', color: '#999', lineHeight: '1.6', letterSpacing: '0.3px' }}>
-            Artificial Research<br/>Intelligent Agent
-          </div>
+          <svg width="200" height="100" viewBox="0 0 200 100" fill="none">
+            <rect x="4" y="48" width="14" height="24" rx="2.5" fill="#f5e6e0" opacity="0.2"/>
+            <rect x="22" y="30" width="14" height="42" rx="2.5" fill="#e8a8b8" opacity="0.5"/>
+            <rect x="40" y="10" width="14" height="62" rx="2.5" fill="#e8a8b8"/>
+            <rect x="58" y="10" width="14" height="62" rx="2.5" fill="#e8a8b8" opacity="0.75"/>
+            <rect x="76" y="30" width="14" height="42" rx="2.5" fill="#e8a8b8" opacity="0.5"/>
+            <rect x="94" y="48" width="14" height="24" rx="2.5" fill="#f5e6e0" opacity="0.2"/>
+            <rect x="30" y="36" width="58" height="9" rx="2.5" fill="#f5e6e0" opacity="0.28"/>
+            <text x="118" y="52" fontFamily="'Century Gothic', 'Trebuchet MS', sans-serif" fontSize="34" fontWeight="600" fill="#f5e6e0" letterSpacing="5">ARIA</text>
+            <text x="118" y="67" fontFamily="'Century Gothic', 'Trebuchet MS', sans-serif" fontSize="9.5" fill="#999" letterSpacing="0.3">Artificial Research Intelligent Agent</text>
+          </svg>
         </div>
 
         {/* Nav */}
