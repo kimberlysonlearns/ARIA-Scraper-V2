@@ -1386,7 +1386,12 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   </div>
                 </div>
               </div>
-            )} ───────────────────────────────────────────── */}
+            )}
+
+          </div>
+        )}
+
+        {/* ── ANALYSIS ───────────────────────────────────────────── */}
         {activePage === 'analysis' && (
           <div>
             <h1 style={H1}>ANALYSIS</h1>
