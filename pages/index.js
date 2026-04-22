@@ -699,7 +699,7 @@ export default function Home() {
   const [compNotes, setCompNotes] = useState({});
   const [scanHistory, setScanHistory] = useState({});
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', website: '', country: 'US' });
+  const [form, setForm] = useState({ name: '', website: '', country: '' });
   const [scraping, setScraping] = useState({});
   const [analysisFilter, setAnalysisFilter] = useState('ALL');
   const [analysisSortBy, setAnalysisSortBy] = useState('name');
@@ -739,10 +739,11 @@ export default function Home() {
   const handleAddCompetitor = () => {
     if (!form.name.trim()) { alert('Please enter a company name'); return; }
     if (!form.website.trim()) { alert('Please enter a website URL'); return; }
+    if (!form.country) { alert('Please select a market (CA or US)'); return; }
     let website = form.website.trim();
     if (!website.startsWith('http')) website = 'https://' + website;
     setCompetitors(prev => [...prev, { id: Date.now(), name: form.name.toUpperCase(), website, items: 0, country: form.country || 'US', currency: form.country === 'CA' ? 'CAD' : 'USD' }]);
-    setForm({ name: '', website: '', country: 'US' });
+    setForm({ name: '', website: '', country: '' });
     setShowModal(false);
   };
 
@@ -1334,8 +1335,9 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Market / Country</label>
                     <select value={form.country} onChange={e => setForm({ ...form, country: e.target.value })}
                       style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '14px', marginBottom: '14px' }}>
-                      <option value="US">🇺🇸 United States (USD)</option>
+                      <option value="">— Select market —</option>
                       <option value="CA">🇨🇦 Canada (CAD)</option>
+                      <option value="US">🇺🇸 United States (USD)</option>
                       <option value="OTHER">🌐 Other (USD)</option>
                     </select>
                   </div>
@@ -1572,35 +1574,71 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             ) : (() => {
               const knownIntel = {
                 'GROWTH GUYS': {
-                  freeShipping: null, flatShipping: 'Not advertised', dispatchSpeed: 'Same day tracked',
-                  activeSales: ['Semaglutide — 40% off', 'Tirzepatide — 30% off', 'Retatrutide — 20% off'],
-                  bundles: ['Single vial vs 10-pack on every product'], promoCode: null,
-                  labTesting: 'Janoshik — public results page per batch', productCount: '71', subscription: null,
-                  uniqueFeatures: ['Largest range — 71 products', 'Purity % + avg mass per product'],
+                  freeShipping: 'All orders', flatShipping: 'Canada Post domestic only', dispatchSpeed: 'Same day — tracking within 20 min',
+                  activeSales: ['Semaglutide 5mg — 40% off ($30 CAD)', 'Tirzepatide 10mg — 30% off ($42 CAD)', 'Retatrutide 10mg — 20% off ($72 CAD)'],
+                  bundles: ['Single vial vs 10-pack on every product (10% saving)'], promoCode: null,
+                  labTesting: 'Janoshik — purity % + avg mass published per batch', productCount: '71', subscription: null,
+                  uniqueFeatures: ['🇨🇦 Canada domestic only', 'Largest CA range — 71 products', 'Batch key on every vial — verify your own lot', 'BPC-157 Arginate Tablets (oral format)', 'Survodutide + Cagrilintide stocked'],
                 },
                 'PURITY PEPTIDES': {
-                  freeShipping: null, flatShipping: 'Not publicly listed', dispatchSpeed: 'Same day before 2pm EST',
+                  freeShipping: null, flatShipping: 'Not publicly listed', dispatchSpeed: 'Not confirmed — blocks scraper',
                   activeSales: ['-21% on select products'],
                   bundles: [], promoCode: 'WDPILLS23 — 10% off first order',
-                  labTesting: 'COA per batch — HPLC + mass spec', productCount: '70', subscription: null,
-                  uniqueFeatures: ['Practitioner / clinic focused positioning'],
+                  labTesting: 'HPLC + mass spec COA per batch — 3rd party verified', productCount: '70+', subscription: null,
+                  uniqueFeatures: ['🇨🇦 Canada domestic', 'Blocks automated scraper (403)', 'Clinic / practitioner positioning', 'Ships internationally to most countries'],
                 },
                 'NCRP': {
-                  freeShipping: '$350', flatShipping: '$20 Ontario · $30 outside', dispatchSpeed: 'Within 24hrs Mon–Fri',
+                  freeShipping: '$350', flatShipping: '$20 Ontario · $30 outside Ontario', dispatchSpeed: 'Within 24hrs Mon–Fri',
                   activeSales: [], bundles: [], promoCode: null,
-                  labTesting: '98%+ purity guaranteed, HPLC', productCount: '14', subscription: null,
-                  uniqueFeatures: ['All products made in Canada', 'Smallest / most focused range'],
+                  labTesting: 'HPLC — 98%+ purity guaranteed', productCount: '14', subscription: null,
+                  uniqueFeatures: ['🇨🇦 Made in Canada', 'Smallest / most focused range', 'Ontario-based'],
                 },
                 'PEPTIDE WAREHOUSE': {
                   freeShipping: '$300', flatShipping: null, dispatchSpeed: 'Same day before 2pm EST',
-                  activeSales: ['BPC-157 on sale', 'TB-500 on sale', 'GHK-Cu on sale', 'BPC+TB500 Blend on sale', 'N-Acetyl Epitalon: $54.99 → $44.99'],
+                  activeSales: ['BPC-157 on sale', 'TB-500 on sale', 'GHK-Cu on sale', 'BPC+TB Blend on sale'],
                   bundles: [], promoCode: null,
-                  labTesting: 'HPLC tested — mentioned', productCount: '~12 visible', subscription: null,
-                  uniqueFeatures: ['GHK-Cu Face Cream (skincare)', 'Spray format products'],
+                  labTesting: 'HPLC tested', productCount: '~28 visible', subscription: null,
+                  uniqueFeatures: ['GHK-Cu Face Cream (skincare crossover)', 'Spray format products', 'Wix platform — limited scrape'],
+                },
+                'CORE PEPTIDES': {
+                  freeShipping: '$200 (Priority USPS)', flatShipping: null, dispatchSpeed: 'Same day before 1pm PST Mon–Fri',
+                  activeSales: ['Ipamorelin 5mg on sale'],
+                  bundles: ['CJC+Ipa 10mg', 'BPC+TB+GHK-Cu 70mg triple blend', 'Fragment+ModGRF+Ipa 12mg'], promoCode: null,
+                  labTesting: 'cGMP facility — HPLC + mass spec, 99%+ purity', productCount: '103', subscription: null,
+                  uniqueFeatures: ['🇺🇸 Largest US catalog — 103 products', 'cGMP manufactured', 'Custom bulk orders available', '30-day refund policy', 'Priority Express overnight available'],
+                },
+                'BIOTECH PEPTIDES': {
+                  freeShipping: 'Not listed', flatShipping: 'Not listed', dispatchSpeed: 'Same day before 1pm PST',
+                  activeSales: ['Tesamorelin on sale'],
+                  bundles: ['BPC+TB 10mg', 'Sermorelin+Ipa 10mg', 'Fragment+ModGRF+Ipa 12mg', 'BPC+TB+GHK-Cu 70mg'], promoCode: null,
+                  labTesting: 'HPLC + mass spec — USA synthesised + lyophilised', productCount: '50+', subscription: null,
+                  uniqueFeatures: ['🇺🇸 USA made — synthesised and lyophilised domestically', 'Credit cards accepted', '30-day money back guarantee', 'Custom synthesis on request — any sequence', 'Replacement shipped free if damaged'],
+                },
+                'PRIME PEPTIDES': {
+                  freeShipping: 'All orders (FedEx 3-Day, excl. Florida)', flatShipping: null, dispatchSpeed: 'Same day before 1pm EST · Priority before 2pm EST',
+                  activeSales: ['Sitewide sale — up to 20% off'],
+                  bundles: ['Glow Blend (GHK-Cu/BPC-157/TB-500)', 'Klow Blend'], promoCode: null,
+                  labTesting: '3rd party COA — HPLC + mass spec per batch', productCount: '15', subscription: null,
+                  uniqueFeatures: ['🇺🇸 Free FedEx 3-Day on all orders (no minimum)', 'Ships to Canada', 'Peptide calculator on site', 'Discreet packaging — return addr shows "SHIPPING MANAGER"', '⚠ FDA warning letter Dec 2024', 'Returns accepted on unopened vials within 30 days'],
+                },
+                'ONYX BIOLABS': {
+                  freeShipping: '$200 (standard 3–5 day)', flatShipping: '$11.99 standard · $19.99 expedited 1–2 day', dispatchSpeed: 'Processed within 24–48 hrs',
+                  activeSales: ['10% off first order — code FIRSTORDER', '16 new Kovera lab reports uploaded'],
+                  bundles: ['KLOW 80mg (KPV/GHK-Cu/BPC-157/TB-500 quad blend)'], promoCode: 'FIRSTORDER — 10% off first order',
+                  labTesting: 'Kovera Labs — 16 COAs published, 99.9%+ purity confirmed', productCount: '34', subscription: null,
+                  uniqueFeatures: ['🇺🇸 Charlotte NC based', 'Affiliate program active', 'Lab merch store (t-shirts)', 'Peptide calculator + reconstitution guides', 'Route shipping insurance offered', 'Accepts credit/debit, ACH, Zelle, CashApp, crypto', 'Age 21+ required'],
                 },
               };
 
-              const getK = (c) => Object.entries(knownIntel).find(([k]) => c.name.includes(k) || k.includes(c.name.split(' ')[0]))?.[1] || {};
+              const getK = (c) => {
+                const name = c.name.toUpperCase().replace(/[^A-Z0-9]/g,'');
+                const entry = Object.entries(knownIntel).find(([k]) => {
+                  const key = k.toUpperCase().replace(/[^A-Z0-9]/g,'');
+                  return name.includes(key) || key.includes(name) || 
+                    name.split('').filter((ch,i)=>key[i]===ch).length/Math.max(name.length,key.length) > 0.8;
+                });
+                return entry?.[1] || {};
+              };
 
               const F = "'Century Gothic', 'Trebuchet MS', sans-serif";
               const SEC = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', marginBottom: '14px', overflow: 'hidden' };
