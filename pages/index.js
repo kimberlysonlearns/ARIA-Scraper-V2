@@ -445,7 +445,7 @@ function PricingTab() {
     { name:'HGH',             cat:'Muscle',      bulk_low:0.010, bulk_high:0.025, ruo_low:0.030, ruo_high:0.080, moq_g:0.5, notes:'Full HGH molecule. Complex. Requires cold chain shipping.' },
     // Anti-Aging
     { name:'Epitalon',        cat:'Anti-Aging',  bulk_low:0.001, bulk_high:0.003, ruo_low:0.003, ruo_high:0.008, moq_g:5,   notes:'Tetrapeptide. Very cheap to synthesise. High margin possible.' },
-    { name:'NAD+',            cat:'Anti-Aging',  bulk_low:0.00005,bulk_high:0.0002,ruo_low:0.0002,ruo_high:0.0005,moq_g:100,'notes':'Not a peptide — small molecule. Priced per mg but sold in 500mg+ vials.' },
+    { name:'NAD+',            cat:'Anti-Aging',  bulk_low:0.00005,bulk_high:0.0002,ruo_low:0.0002,ruo_high:0.0005,moq_g:100, notes:'Not a peptide — small molecule. Priced per mg but sold in 500mg+ vials.' },
     { name:'GHK-Cu',          cat:'Anti-Aging',  bulk_low:0.001, bulk_high:0.003, ruo_low:0.005, ruo_high:0.015, moq_g:10,  notes:'Dual listing — cosmetic + anti-aging market overlap.' },
     { name:'MOTS-c',          cat:'Anti-Aging',  bulk_low:0.003, bulk_high:0.008, ruo_low:0.008, ruo_high:0.018, moq_g:1,   notes:'Mitochondria-derived peptide. Growing demand.' },
     { name:'SS-31',           cat:'Anti-Aging',  bulk_low:0.004, bulk_high:0.010, ruo_low:0.010, ruo_high:0.020, moq_g:1,   notes:'Cardiolipin-targeting. Research-grade compound.' },
@@ -694,6 +694,10 @@ export default function Home() {
   const [prevScrapeResults, setPrevScrapeResults] = useState({});
   const [priceChanges, setPriceChanges] = useState([]);
   const [cadUsdRate, setCadUsdRate] = useState(0.72);
+  const [editingCompetitor, setEditingCompetitor] = useState(null);
+  const [aboutOpen, setAboutOpen] = useState({});
+  const [compNotes, setCompNotes] = useState({});
+  const [scanHistory, setScanHistory] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: '', website: '', country: 'US' });
   const [scraping, setScraping] = useState({});
@@ -706,6 +710,8 @@ export default function Home() {
     try {
       const c = localStorage.getItem('aria_competitors'); if (c) setCompetitors(JSON.parse(c));
       const r = localStorage.getItem('aria_cad_usd'); if (r) setCadUsdRate(parseFloat(r));
+      const n = localStorage.getItem('aria_comp_notes'); if (n) setCompNotes(JSON.parse(n));
+      const sh = localStorage.getItem('aria_scan_history'); if (sh) setScanHistory(JSON.parse(sh));
       const r = localStorage.getItem('aria_results'); if (r) setScrapeResults(JSON.parse(r));
       const p = localStorage.getItem('aria_prev_results'); if (p) setPrevScrapeResults(JSON.parse(p));
       const ch = localStorage.getItem('aria_changes'); if (ch) setPriceChanges(JSON.parse(ch));
@@ -714,6 +720,8 @@ export default function Home() {
 
   useEffect(() => { try { localStorage.setItem('aria_competitors', JSON.stringify(competitors)); } catch {} }, [competitors]);
   useEffect(() => { try { localStorage.setItem('aria_cad_usd', String(cadUsdRate)); } catch {} }, [cadUsdRate]);
+  useEffect(() => { try { localStorage.setItem('aria_comp_notes', JSON.stringify(compNotes)); } catch {} }, [compNotes]);
+  useEffect(() => { try { localStorage.setItem('aria_scan_history', JSON.stringify(scanHistory)); } catch {} }, [scanHistory]);
   useEffect(() => { try { localStorage.setItem('aria_results', JSON.stringify(scrapeResults)); } catch {} }, [scrapeResults]);
   useEffect(() => { try { localStorage.setItem('aria_prev_results', JSON.stringify(prevScrapeResults)); } catch {} }, [prevScrapeResults]);
   useEffect(() => { try { localStorage.setItem('aria_changes', JSON.stringify(priceChanges)); } catch {} }, [priceChanges]);
@@ -743,6 +751,17 @@ export default function Home() {
     setCompetitors(prev => prev.filter(c => c.id !== id));
     setScrapeResults(prev => { const n = { ...prev }; delete n[id]; return n; });
     setPrevScrapeResults(prev => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  const handleEditSave = () => {
+    if (!editingCompetitor) return;
+    let website = editingCompetitor.website.trim();
+    if (!website.startsWith('http')) website = 'https://' + website;
+    setCompetitors(prev => prev.map(c => c.id === editingCompetitor.id
+      ? { ...c, name: editingCompetitor.name.toUpperCase(), website, country: editingCompetitor.country, currency: editingCompetitor.country === 'CA' ? 'CAD' : 'USD' }
+      : c
+    ));
+    setEditingCompetitor(null);
   };
 
   const handleScrape = async (competitor) => {
@@ -1146,28 +1165,126 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 const result = scrapeResults[c.id];
                 const products = result?.insights?.[0]?.items || [];
                 const competitorChanges = priceChanges.filter(ch => ch.competitor === c.name);
+                const history = scanHistory[c.id] || [];
+                const isAboutOpen = !!aboutOpen[c.id];
+                const note = compNotes[c.id] || '';
+                const allCompProducts = Object.values(scrapeResults).flatMap(r => (r?.insights?.[0]?.items||[]).map(i => i.split(' — ')[0]?.trim()?.toLowerCase()));
+                const myProducts = (result?.insights?.[0]?.items||[]).map(i => i.split(' — ')[0]?.trim()?.toLowerCase());
+                const exclusiveCount = myProducts.filter(p => allCompProducts.filter(x => x === p).length === 1).length;
+                const successfulScans = history.filter(h => h.success).length;
+                const reliability = history.length ? Math.round((successfulScans / history.length) * 100) : null;
+                const pricingTag = (() => {
+                  const avg = myProducts.length;
+                  if (!result?.success) return null;
+                  const myPrices = (result?.insights?.[0]?.items||[]).map(i => parsePrice(i.split(' — ').find(p => p.includes('$')))).filter(Boolean);
+                  if (!myPrices.length) return null;
+                  const myAvg = myPrices.reduce((a,b)=>a+b,0)/myPrices.length;
+                  const allAvgs = competitors.map(comp => {
+                    const r = scrapeResults[comp.id];
+                    const prices = (r?.insights?.[0]?.items||[]).map(i => parsePrice(i.split(' — ').find(p => p.includes('$')))).filter(Boolean);
+                    return prices.length ? prices.reduce((a,b)=>a+b,0)/prices.length : null;
+                  }).filter(Boolean);
+                  if (!allAvgs.length) return null;
+                  const median = allAvgs.sort((a,b)=>a-b)[Math.floor(allAvgs.length/2)];
+                  if (myAvg < median * 0.85) return { label:'BUDGET', color:'#b0ffd8', bg:'#0a1e14', border:'#b0ffd8' };
+                  if (myAvg > median * 1.15) return { label:'PREMIUM', color:'#ffb0e0', bg:'#280a1e', border:'#ffb0e0' };
+                  return { label:'MID', color:'#ffe0a0', bg:'#281e0a', border:'#ffe0a0' };
+                })();
+
                 return (
-                  <div key={c.id} className="aria-card" style={CARD}>
+                  <div key={c.id} className="aria-card" style={{ ...CARD, borderColor: isAboutOpen ? '#3a3a3a' : '#2a2a2a' }}>
+                    {/* Header row */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div>
-                        <h3 style={{ ...H3, margin: 0, display:'flex', alignItems:'center', gap:'6px' }}>
+                        <h3 style={{ ...H3, margin: 0, display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap' }}>
                           {c.name}
                           {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background: c.country==='CA' ? '#281e0a' : '#0a1428', border: `1px solid ${c.country==='CA' ? '#ffe0a0' : '#b0d4ff'}`, color: c.country==='CA' ? '#ffe0a0' : '#b0d4ff', textTransform:'none', letterSpacing:'0' }}>{c.country} · {c.currency || 'USD'}</span>}
+                          {pricingTag && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background:pricingTag.bg, border:`1px solid ${pricingTag.border}`, color:pricingTag.color, textTransform:'none', letterSpacing:'0' }}>{pricingTag.label}</span>}
                         </h3>
                         <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#888', textDecoration: 'none' }}>{c.website}</a>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap:'wrap' }}>
                         {competitorChanges.length > 0 && (
                           <span style={{ fontSize: '10px', padding: '3px 8px', background: '#281e0a', border: '1px solid #cc9040', borderRadius: '99px', color: '#ffe0a0' }}>
-                            {competitorChanges.length} price change{competitorChanges.length > 1 ? 's' : ''}
+                            {competitorChanges.length} change{competitorChanges.length > 1 ? 's' : ''}
                           </span>
                         )}
+                        <button style={{ ...BTN, padding: '5px 11px', fontSize: '11px', borderColor: isAboutOpen ? '#f5e6e0' : '#444', color: isAboutOpen ? '#f5e6e0' : '#bbb' }}
+                          onClick={() => setAboutOpen(prev => ({ ...prev, [c.id]: !prev[c.id] }))}>
+                          ⓘ ABOUT
+                        </button>
+                        <button style={{ ...BTN, padding: '5px 11px', fontSize: '11px' }}
+                          onClick={() => setEditingCompetitor({ ...c })}>EDIT</button>
                         <button style={{ ...BTN_PRIMARY, padding: '7px 14px', fontSize: '14px', opacity: scraping[c.id] ? 0.6 : 1 }} onClick={() => handleScrape(c)} disabled={scraping[c.id]}>
                           {scraping[c.id] ? 'SCANNING...' : 'CHECK NOW'}
                         </button>
                         <button style={{ ...BTN, padding: '7px 14px', fontSize: '14px' }} onClick={() => handleDelete(c.id)}>DELETE</button>
                       </div>
                     </div>
+
+                    {/* About panel */}
+                    {isAboutOpen && (
+                      <div style={{ background:'#1a1a1a', border:'1px solid #2a2a2a', borderRadius:'8px', marginBottom:'14px', overflow:'hidden' }}>
+                        <div style={{ background:'#1f1f1f', padding:'10px 16px', borderBottom:'1px solid #252525', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <span style={{ fontSize:'10px', fontWeight:'600', color:'#f5e6e0', letterSpacing:'1px', textTransform:'uppercase', fontFamily:FF }}>Company Profile</span>
+                          <span style={{ fontSize:'14px', color:'#555', cursor:'pointer' }} onClick={() => setAboutOpen(prev => ({ ...prev, [c.id]: false }))}>×</span>
+                        </div>
+                        <div style={{ padding:'14px 16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'12px 20px' }}>
+                          {/* Col 1 */}
+                          <div>
+                            <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', fontWeight:'600', marginBottom:'8px', fontFamily:FF }}>Business</div>
+                            {[
+                              ['Country', c.country === 'CA' ? '🇨🇦 Canada' : c.country === 'US' ? '🇺🇸 USA' : '🌐 Other'],
+                              ['Currency', c.currency || 'USD'],
+                              ['Products tracked', products.length || '—'],
+                              ['Exclusive products', exclusiveCount || '—'],
+                            ].map(([k,v]) => (
+                              <div key={k} style={{ marginBottom:'8px' }}>
+                                <div style={{ fontSize:'10px', color:'#555', fontFamily:FF }}>{k}</div>
+                                <div style={{ fontSize:'12px', color:'#ccc', fontFamily:FF }}>{v}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Col 2 */}
+                          <div>
+                            <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', fontWeight:'600', marginBottom:'8px', fontFamily:FF }}>Scan Performance</div>
+                            {[
+                              ['Reliability', reliability !== null ? `${reliability}%` : 'No history'],
+                              ['Scans recorded', history.length ? `${history.length} / last 5` : 'None yet'],
+                              ['Last scan', history[0]?.scrapedAt ? new Date(history[0].scrapedAt).toLocaleDateString() : '—'],
+                              ['Price changes', competitorChanges.length || '0'],
+                            ].map(([k,v]) => (
+                              <div key={k} style={{ marginBottom:'8px' }}>
+                                <div style={{ fontSize:'10px', color:'#555', fontFamily:FF }}>{k}</div>
+                                <div style={{ fontSize:'12px', color: k==='Reliability' && reliability !== null ? (reliability >= 80 ? '#b0ffd8' : reliability >= 50 ? '#ffe0a0' : '#ffb0e0') : '#ccc', fontFamily:FF }}>{v}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Col 3 — scan history */}
+                          <div>
+                            <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', fontWeight:'600', marginBottom:'8px', fontFamily:FF }}>Scan History</div>
+                            {history.length === 0 ? (
+                              <div style={{ fontSize:'11px', color:'#444', fontFamily:FF }}>No scans yet</div>
+                            ) : history.map((h, i) => (
+                              <div key={i} style={{ display:'flex', justifyContent:'space-between', marginBottom:'5px', fontSize:'11px', fontFamily:FF }}>
+                                <span style={{ color: h.success ? '#b0ffd8' : '#ffb0e0' }}>{h.success ? '✓' : '✗'} {h.productCount || 0} products</span>
+                                <span style={{ color:'#555' }}>{h.scrapedAt ? new Date(h.scrapedAt).toLocaleDateString() : '—'}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Notes — full width */}
+                          <div style={{ gridColumn:'1/-1', borderTop:'1px solid #252525', paddingTop:'12px' }}>
+                            <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', fontWeight:'600', marginBottom:'6px', fontFamily:FF }}>Team Notes</div>
+                            <textarea
+                              value={note}
+                              onChange={e => setCompNotes(prev => ({ ...prev, [c.id]: e.target.value }))}
+                              placeholder="Add observations, manual price check dates, strategy notes..."
+                              style={{ width:'100%', padding:'8px 10px', background:'#111', border:'1px solid #333', borderRadius:'6px', color:'#ccc', fontSize:'12px', fontFamily:FF, resize:'none', height:'56px' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {scraping[c.id] && <p style={{ fontSize: '14px', color: '#f5e6e0' }}>Scanning {c.website}...</p>}
 
@@ -1242,10 +1359,34 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── ANALYSIS ───────────────────────────────────────────── */}
+            {/* ── EDIT COMPETITOR MODAL ── */}
+            {editingCompetitor && (
+              <div onClick={() => setEditingCompetitor(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div onClick={e => e.stopPropagation()} style={{ background: '#181818', border: '1px solid #333', borderRadius: '10px', padding: '28px', maxWidth: '460px', width: '90%' }}>
+                  <h2 style={{ fontSize: '16px', marginBottom: '20px', color: '#f5e6e0', textTransform: 'uppercase', letterSpacing: '1px' }}>Edit Competitor</h2>
+                  {[{ label: 'Company Name', key: 'name', type: 'text' }, { label: 'Website URL', key: 'website', type: 'url' }].map(f => (
+                    <div key={f.key}>
+                      <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{f.label}</label>
+                      <input type={f.type} value={editingCompetitor[f.key]} onChange={e => setEditingCompetitor(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '14px', marginBottom: '14px', boxSizing: 'border-box' }} />
+                    </div>
+                  ))}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Market / Country</label>
+                    <select value={editingCompetitor.country || 'US'} onChange={e => setEditingCompetitor(prev => ({ ...prev, country: e.target.value }))}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '14px', marginBottom: '14px' }}>
+                      <option value="US">🇺🇸 United States (USD)</option>
+                      <option value="CA">🇨🇦 Canada (CAD)</option>
+                      <option value="OTHER">🌐 Other (USD)</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                    <button className="aria-btn" style={BTN} onClick={() => setEditingCompetitor(null)}>CANCEL</button>
+                    <button className="aria-btn-primary" style={BTN_PRIMARY} onClick={handleEditSave}>SAVE</button>
+                  </div>
+                </div>
+              </div>
+            )} ───────────────────────────────────────────── */}
         {activePage === 'analysis' && (
           <div>
             <h1 style={H1}>ANALYSIS</h1>
@@ -1581,8 +1722,8 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               <p style={P}>All data is saved in your browser and survives page refreshes. Includes competitors, scan results, and price change history.</p>
               <button style={{ ...BTN, marginTop: '12px', borderColor: '#ffb0e0', color: '#ffb0e0' }} onClick={() => {
                 if (window.confirm('Clear ALL data? This cannot be undone.')) {
-                  setCompetitors([]); setScrapeResults({}); setPrevScrapeResults({}); setPriceChanges([]);
-                  ['aria_competitors','aria_results','aria_prev_results','aria_changes'].forEach(k => localStorage.removeItem(k));
+                  setCompetitors([]); setScrapeResults({}); setPrevScrapeResults({}); setPriceChanges([]); setScanHistory({}); setCompNotes({});
+                  ['aria_competitors','aria_results','aria_prev_results','aria_changes','aria_comp_notes','aria_scan_history'].forEach(k => localStorage.removeItem(k));
                 }
               }}>CLEAR ALL DATA</button>
             </div>
