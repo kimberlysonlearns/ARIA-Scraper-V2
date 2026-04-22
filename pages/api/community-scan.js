@@ -14,11 +14,12 @@ export default async function handler(req, res) {
 
 ${tpContext}
 
-Search Reddit (r/Peptides, r/PeptidesGrowth, r/semaglutide, r/researchchemicals), SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and any other relevant forums or review sites. Find actual customer quotes where possible.
+Search Reddit (r/Peptides, r/PeptidesGrowth, r/semaglutide, r/researchchemicals), SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and any other relevant forums or review sites. Find as many actual customer quotes as possible, especially negative ones.
 
-You MUST return ONLY a valid JSON object. No markdown, no backticks, no text before or after the JSON. Start your response with { and end with }.
+You MUST return ONLY a valid JSON object. No markdown, no backticks, no text before or after. Start with { and end with }.
 
-{"summary":"3-4 sentence overall reputation summary","sentimentScore":50,"watchFlag":false,"verdict":"one sentence actionable insight","latestActivity":"most recent mention with approximate date","sources":["platform1","platform2"],"positiveReviews":[{"quote":"customer quote","source":"platform","date":"approx date"},{"quote":"another quote","source":"platform","date":"date"}],"negativeReviews":[{"quote":"complaint quote","source":"platform","date":"approx date"},{"quote":"another complaint","source":"platform","date":"date"}],"neutralObservations":[{"quote":"neutral observation","source":"platform","date":"approx date"}],"positive":"main praise in 10 words","negative":"main complaint in 10 words","neutral":"key observation in 10 words"}`;
+Use this exact structure:
+{"summary":"3-4 sentence overall reputation summary","sentimentScore":50,"watchFlag":false,"verdict":"one sentence actionable insight for a competitor","latestActivity":"most recent mention with approximate date","sources":["platform1","platform2"],"positiveReviews":[{"quote":"real customer quote","source":"platform","date":"approx date"},{"quote":"quote","source":"platform","date":"date"},{"quote":"quote","source":"platform","date":"date"}],"negativeReviews":[{"quote":"real complaint quote","source":"platform","date":"approx date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"}],"neutralObservations":[{"quote":"neutral observation","source":"platform","date":"date"},{"quote":"observation","source":"platform","date":"date"}],"mainIssues":["main recurring issue 1 in one sentence","main recurring issue 2","main recurring issue 3"],"suggestions":["what YOUR company should do to avoid this issue 1","suggestion 2","suggestion 3","suggestion 4"],"positive":"main praise in 10 words","negative":"main complaint in 10 words","neutral":"key observation in 10 words or null"}`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -31,7 +32,7 @@ You MUST return ONLY a valid JSON object. No markdown, no backticks, no text bef
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
+        max_tokens: 3000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -45,13 +46,8 @@ You MUST return ONLY a valid JSON object. No markdown, no backticks, no text bef
     const data = await response.json();
     const textBlock = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
 
-    // Try multiple JSON extraction strategies
     let result = null;
-
-    // Strategy 1: direct parse
     try { result = JSON.parse(textBlock.trim()); } catch(e) {}
-
-    // Strategy 2: find first { to last }
     if (!result) {
       const start = textBlock.indexOf('{');
       const end = textBlock.lastIndexOf('}');
@@ -59,22 +55,18 @@ You MUST return ONLY a valid JSON object. No markdown, no backticks, no text bef
         try { result = JSON.parse(textBlock.slice(start, end + 1)); } catch(e) {}
       }
     }
-
-    // Strategy 3: strip markdown fences
     if (!result) {
       const stripped = textBlock.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       try { result = JSON.parse(stripped); } catch(e) {}
     }
+    if (!result) return res.status(200).json({ error: 'No structured data in response', raw: textBlock.slice(0, 400) });
 
-    if (!result) {
-      return res.status(200).json({ error: 'No structured data in response', raw: textBlock.slice(0, 400) });
-    }
-
-    // Ensure required arrays exist
     if (!result.positiveReviews) result.positiveReviews = [];
     if (!result.negativeReviews) result.negativeReviews = [];
     if (!result.neutralObservations) result.neutralObservations = [];
     if (!result.sources) result.sources = [];
+    if (!result.mainIssues) result.mainIssues = [];
+    if (!result.suggestions) result.suggestions = [];
     if (typeof result.sentimentScore !== 'number') result.sentimentScore = 50;
     if (typeof result.watchFlag !== 'boolean') result.watchFlag = false;
 
