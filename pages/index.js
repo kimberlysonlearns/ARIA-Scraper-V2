@@ -895,6 +895,13 @@ export default function Home() {
   const [analysisMarket, setAnalysisMarket] = useState('ALL');
   const [intelMarket, setIntelMarket] = useState('ALL');
   const [communityScans, setCommunityScans] = useState({});
+  const [lastScanTime, setLastScanTime] = useState(null);
+  const [scanCooldown, setScanCooldown] = useState(0);
+  useEffect(() => {
+    if (scanCooldown <= 0) return;
+    const t = setInterval(() => setScanCooldown(p => { if (p <= 1) { clearInterval(t); return 0; } return p - 1; }), 1000);
+    return () => clearInterval(t);
+  }, [scanCooldown]);
 
   // ── Persist to localStorage ──────────────────────────────────────
   useEffect(() => {
@@ -1961,12 +1968,92 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               </div>
             ) : (
               <>
-                <div style={{ background:'#1a1a1a', border:'1px solid #252525', borderRadius:'8px', padding:'12px 16px', marginBottom:'20px', display:'flex', gap:'10px', alignItems:'flex-start' }}>
-                  <span style={{ color:'#b0d4ff', fontSize:'14px' }}>ℹ</span>
-                  <p style={{ fontSize:'12px', color:'#555', margin:0, lineHeight:'1.7', fontFamily:FF }}>
-                    Scan one at a time — each scan takes 10–15 seconds and searches Reddit, SteroidSourceTalk, MesoRX, Eroids, Trustpilot and the broader web. Wait 30 seconds between scans to avoid rate limits.
-                  </p>
+                {/* Cooldown banner */}
+                <div style={{ background: scanCooldown > 0 ? '#1a1a0a' : '#1a1a1a', border: `1px solid ${scanCooldown > 0 ? '#cc9040' : '#252525'}`, borderRadius:'8px', padding:'12px 16px', marginBottom:'20px', display:'flex', gap:'12px', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ display:'flex', gap:'10px', alignItems:'flex-start' }}>
+                    <span style={{ color:'#b0d4ff', fontSize:'14px' }}>ℹ</span>
+                    <p style={{ fontSize:'12px', color:'#555', margin:0, lineHeight:'1.7', fontFamily:FF }}>
+                      Scan one at a time — each scan searches Reddit, SteroidSourceTalk, MesoRX, Eroids, Trustpilot and the broader web. Wait 30 seconds between scans to avoid rate limits.
+                    </p>
+                  </div>
+                  {scanCooldown > 0 && (
+                    <div style={{ textAlign:'center', flexShrink:0, background:'#281e0a', border:'1px solid #cc9040', borderRadius:'8px', padding:'8px 16px', minWidth:'90px' }}>
+                      <div style={{ fontSize:'22px', fontWeight:'700', color:'#ffe0a0', fontFamily:FF, lineHeight:1 }}>{scanCooldown}s</div>
+                      <div style={{ fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'1px', fontFamily:FF, marginTop:'2px' }}>Next scan</div>
+                    </div>
+                  )}
+                  {scanCooldown === 0 && lastScanTime && (
+                    <div style={{ textAlign:'center', flexShrink:0, background:'#0a1e14', border:'1px solid #40c080', borderRadius:'8px', padding:'8px 16px', minWidth:'90px' }}>
+                      <div style={{ fontSize:'13px', fontWeight:'600', color:'#b0ffd8', fontFamily:FF }}>✓ READY</div>
+                      <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', fontFamily:FF, marginTop:'2px' }}>Scan now</div>
+                    </div>
+                  )}
                 </div>
+                {/* Scan All button */}
+                {(() => {
+                  const allDone = competitors.every(c => communityScans[c.id]?.status === 'done');
+                  const anyLoading = competitors.some(c => communityScans[c.id]?.status === 'loading');
+                  const scanAllActive = communityScans._scanAllActive;
+                  const scanAllProgress = communityScans._scanAllProgress || { current: 0, total: competitors.length };
+
+                  const doScanAll = async () => {
+                    if (anyLoading || scanAllActive) return;
+                    setCommunityScans(prev => ({ ...prev, _scanAllActive: true, _scanAllProgress: { current: 0, total: competitors.length } }));
+                    const tpMap = {
+                      'GROWTH GUYS': null, 'PURITY PEPTIDES': null,
+                      'CORE PEPTIDES': { stars:4.8, count:120 }, 'BIOTECH PEPTIDES': { stars:5.0, count:334 },
+                      'PRIME PEPTIDES': { stars:4.7, count:45 }, 'ONYX BIOLABS': { stars:5.0, count:20 },
+                    };
+                    for (let i = 0; i < competitors.length; i++) {
+                      const c = competitors[i];
+                      setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading', expandedSection: prev[c.id]?.expandedSection }, _scanAllProgress: { current: i, total: competitors.length } }));
+                      const tp = Object.entries(tpMap).find(([k]) => c.name.includes(k.split(' ')[0]))?.[1] || null;
+                      try {
+                        const response = await fetch('/api/community-scan', {
+                          method:'POST', headers:{ 'Content-Type':'application/json' },
+                          body: JSON.stringify({ competitorName: c.name, country: c.country, trustpilot: tp }),
+                        });
+                        const data = await response.json();
+                        if (data.error) throw new Error(data.error);
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'done', result: data.result, scannedAt: new Date().toLocaleTimeString(), expandedSection: prev[c.id]?.expandedSection } }));
+                      } catch(e) {
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
+                      }
+                      if (i < competitors.length - 1) {
+                        await new Promise(r => setTimeout(r, 25000));
+                      }
+                    }
+                    setCommunityScans(prev => ({ ...prev, _scanAllActive: false, _scanAllProgress: { current: competitors.length, total: competitors.length } }));
+                  };
+
+                  return (
+                    <div style={{ display:'flex', gap:'10px', alignItems:'center', marginBottom:'16px', flexWrap:'wrap' }}>
+                      <button onClick={doScanAll} disabled={anyLoading || scanAllActive}
+                        style={{ padding:'10px 22px', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor: anyLoading||scanAllActive ? 'default':'pointer', fontFamily:FF, letterSpacing:'0.5px', textTransform:'uppercase',
+                          border: anyLoading||scanAllActive ? '1px solid #b0d4ff' : '1px solid #b0d4ff',
+                          background: anyLoading||scanAllActive ? 'transparent' : '#0a1428',
+                          color: anyLoading||scanAllActive ? '#b0d4ff' : '#b0d4ff',
+                          opacity: anyLoading||scanAllActive ? 0.7 : 1 }}>
+                        {scanAllActive ? `⟳ SCANNING ${scanAllProgress.current + 1} OF ${scanAllProgress.total} — 25s BETWEEN EACH` : '⟳ SCAN ALL (AUTO-DELAY)'}
+                      </button>
+                      {scanAllActive && (
+                        <div style={{ flex:1, minWidth:'200px' }}>
+                          <div style={{ height:'4px', background:'#2a2a2a', borderRadius:'2px', overflow:'hidden' }}>
+                            <div style={{ height:'100%', background:'#b0d4ff', borderRadius:'2px', width:`${(scanAllProgress.current / scanAllProgress.total) * 100}%`, transition:'width 0.5s' }} />
+                          </div>
+                          <div style={{ display:'flex', gap:'6px', marginTop:'6px', flexWrap:'wrap' }}>
+                            {competitors.map((c, i) => {
+                              const st = communityScans[c.id]?.status;
+                              const color = st==='done' ? { bg:'#0a1e14', border:'#40c080', text:'#b0ffd8' } : st==='loading' ? { bg:'#0a1428', border:'#b0d4ff', text:'#b0d4ff' } : st==='error' ? { bg:'#280a1e', border:'#cc4080', text:'#ffb0e0' } : { bg:'#1a1a1a', border:'#2a2a2a', text:'#555' };
+                              return <span key={i} style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:color.bg, border:`1px solid ${color.border}`, color:color.text, fontFamily:FF }}>{c.name.split(' ')[0]}</span>;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div style={{ display:'grid', gap:'12px' }}>
                   {competitors.map(c => {
                     const scan = communityScans[c.id] || { status:'idle' };
@@ -1974,7 +2061,10 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     const r = scan.result;
 
                     const doScan = async () => {
+                      if (scanCooldown > 0) return;
                       setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading', expandedSection: prev[c.id]?.expandedSection } }));
+                      setLastScanTime(Date.now());
+                      setScanCooldown(30);
                       const tpMap = {
                         'GROWTH GUYS': null,
                         'PURITY PEPTIDES': null,
@@ -2045,7 +2135,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                                 background: isLoading?'transparent': scan.status==='done' ? 'transparent' : '#f5e6e0',
                                 color: isLoading?'#ffe0a0': scan.status==='done' ? '#777' : '#181818',
                                 opacity: isLoading?0.8:1 }}>
-                              {isLoading ? '⟳ SCANNING...' : scan.status==='done' ? '↺ RESCAN' : 'SCAN'}
+                              {isLoading ? '⟳ SCANNING...' : scan.status==='done' ? '↺ RESCAN' : scanCooldown > 0 ? `WAIT ${scanCooldown}s` : 'SCAN'}
                             </button>
                           </div>
                         </div>
@@ -2087,6 +2177,16 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                               <SectionBtn id="neutral" label="≈ Observations"
                                 color={{ bg:'#1a1a1a', border:'#555', text:'#aaa' }}
                                 count={r.neutralObservations?.length} />
+                              {r.mainIssues && r.mainIssues.length > 0 && (
+                                <SectionBtn id="issues" label="⚠ Issues"
+                                  color={{ bg:'#1a0e0a', border:'#ff8040', text:'#ffb080' }}
+                                  count={r.mainIssues.length} />
+                              )}
+                              {r.suggestions && r.suggestions.length > 0 && (
+                                <SectionBtn id="suggestions" label="✓ Suggestions"
+                                  color={{ bg:'#0a1a0e', border:'#40c080', text:'#b0ffd8' }}
+                                  count={r.suggestions.length} />
+                              )}
                               {r.sources && r.sources.length > 0 && (
                                 <SectionBtn id="sources" label="Sources"
                                   color={{ bg:'#0a1428', border:'#4080cc', text:'#b0d4ff' }}
@@ -2139,6 +2239,30 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                                     <span key={i} style={{ fontSize:'11px', padding:'3px 10px', borderRadius:'99px', background:'#0a1428', border:'1px solid #1a3a5a', color:'#b0d4ff', fontFamily:FF }}>{s}</span>
                                   ))}
                                 </div>
+                              </div>
+                            )}
+
+                            {expandedSection === 'issues' && r.mainIssues && r.mainIssues.length > 0 && (
+                              <div style={{ background:'#1a0e0a', border:'1px solid #3a1a0a', borderRadius:'6px', padding:'12px 14px', marginBottom:'10px' }}>
+                                <div style={{ fontSize:'9px', color:'#ff8040', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px', fontFamily:FF }}>Main Issues Found</div>
+                                {r.mainIssues.map((issue, i) => (
+                                  <div key={i} style={{ display:'flex', gap:'10px', marginBottom:'8px', paddingBottom:'8px', borderBottom: i < r.mainIssues.length-1 ? '1px solid #2a1a0a' : 'none' }}>
+                                    <span style={{ fontSize:'11px', color:'#ff8040', flexShrink:0, fontWeight:'700', fontFamily:FF }}>{i+1}.</span>
+                                    <span style={{ fontSize:'13px', color:'#ffb080', lineHeight:'1.6', fontFamily:FF }}>{issue}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {expandedSection === 'suggestions' && r.suggestions && r.suggestions.length > 0 && (
+                              <div style={{ background:'#0a1a0e', border:'1px solid #1a3a1a', borderRadius:'6px', padding:'12px 14px', marginBottom:'10px' }}>
+                                <div style={{ fontSize:'9px', color:'#40c080', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px', fontFamily:FF }}>What To Do Differently</div>
+                                {r.suggestions.map((s, i) => (
+                                  <div key={i} style={{ display:'flex', gap:'10px', marginBottom:'8px', paddingBottom:'8px', borderBottom: i < r.suggestions.length-1 ? '1px solid #1a2a1a' : 'none' }}>
+                                    <span style={{ fontSize:'13px', color:'#40c080', flexShrink:0, fontWeight:'700', fontFamily:FF }}>✓</span>
+                                    <span style={{ fontSize:'13px', color:'#b0ffd8', lineHeight:'1.6', fontFamily:FF }}>{s}</span>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
