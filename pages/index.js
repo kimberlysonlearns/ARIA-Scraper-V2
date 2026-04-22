@@ -696,21 +696,12 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
   const [expandedComp, setExpandedComp] = useState(null);
 
   const fetchReddit = async (competitorId, query) => {
-    if (redditPosts[competitorId] || redditLoading[competitorId]) return;
+    if (redditPosts[competitorId] !== undefined || redditLoading[competitorId]) return;
     setRedditLoading(prev => ({ ...prev, [competitorId]: true }));
     try {
-      const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=new&limit=8&t=year`;
-      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const res = await fetch(`/api/reddit?q=${encodeURIComponent(query)}`);
       const data = await res.json();
-      const posts = (data?.data?.children || []).map(p => ({
-        title: p.data.title,
-        subreddit: p.data.subreddit,
-        score: p.data.score,
-        url: `https://reddit.com${p.data.permalink}`,
-        created: new Date(p.data.created_utc * 1000).toLocaleDateString(),
-        selftext: (p.data.selftext || '').slice(0, 300),
-      }));
-      setRedditPosts(prev => ({ ...prev, [competitorId]: posts }));
+      setRedditPosts(prev => ({ ...prev, [competitorId]: data.posts || [] }));
     } catch (e) {
       setRedditPosts(prev => ({ ...prev, [competitorId]: [] }));
     }
@@ -722,8 +713,8 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
     setSummaryLoading(prev => ({ ...prev, [competitorId]: true }));
     try {
       const postText = posts.slice(0, 6).map(p => `- "${p.title}" (r/${p.subreddit}, ${p.created}): ${p.selftext}`).join('\n');
-      const tpText = trustpilot ? `Trustpilot: ${trustpilot.stars}/5 stars from ${trustpilot.count} reviews.` : 'No Trustpilot data.';
-      const prompt = `You are analyzing customer sentiment for a peptide research chemical vendor called "${competitorName}". ${tpText}\n\nRecent Reddit posts mentioning them:\n${postText || 'No Reddit posts found.'}\n\nProvide a concise 3-sentence summary covering: (1) overall reputation, (2) most common praise or complaint, (3) any red flags or standout positives. Be direct and analytical, not promotional.`;
+      const tpText = trustpilot ? `Trustpilot: ${trustpilot.stars}/5 stars from ${trustpilot.count} reviews.` : 'No Trustpilot profile found.';
+      const prompt = `You are a competitive intelligence analyst reviewing a peptide research chemical vendor called "${competitorName}". ${tpText}\n\nRecent Reddit posts mentioning them:\n${postText || 'No Reddit posts found in the past year.'}\n\nWrite a concise 3-sentence summary: (1) overall reputation and trust level, (2) most common customer praise or complaint, (3) any red flags or standout advantages. Be direct and analytical.`;
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -733,7 +724,7 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
       const text = data?.content?.[0]?.text || 'Could not generate summary.';
       setSummaries(prev => ({ ...prev, [competitorId]: text }));
     } catch (e) {
-      setSummaries(prev => ({ ...prev, [competitorId]: 'Summary unavailable.' }));
+      setSummaries(prev => ({ ...prev, [competitorId]: 'API error — try again.' }));
     }
     setSummaryLoading(prev => ({ ...prev, [competitorId]: false }));
   };
@@ -743,12 +734,6 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
     if (expandedComp === c.id) { setExpandedComp(null); return; }
     setExpandedComp(c.id);
     fetchReddit(c.id, rep.redditQuery);
-  };
-
-  const handleSummarize = (c) => {
-    const rep = getRepK(c);
-    const posts = redditPosts[c.id] || [];
-    generateSummary(c.id, c.name, posts, rep.trustpilot);
   };
 
   const FF = "'Century Gothic', 'Trebuchet MS', sans-serif";
@@ -814,11 +799,10 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
                 );
               })}
             </tr>
-            {/* Reddit */}
+            {/* Reddit Posts */}
             <tr>
               <td style={ROW_LABEL}>Reddit Posts</td>
               {competitors.map(c => {
-                const rep = getRepK(c);
                 const posts = redditPosts[c.id];
                 const loading = redditLoading[c.id];
                 const isExpanded = expandedComp === c.id;
@@ -830,7 +814,8 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
                     </button>
                     {isExpanded && (
                       <div style={{ marginTop:'10px', textAlign:'left' }}>
-                        {posts && posts.length > 0 ? posts.map((p, pi) => (
+                        {loading && <div style={{ fontSize:'11px', color:'#555', fontFamily:F, padding:'8px' }}>Fetching from Reddit...</div>}
+                        {!loading && posts && posts.length > 0 ? posts.map((p, pi) => (
                           <a key={pi} href={p.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:'none', display:'block', marginBottom:'6px' }}>
                             <div style={{ background:'#111', border:'1px solid #1e1e1e', borderRadius:'5px', padding:'8px 10px' }}>
                               <div style={{ fontSize:'12px', color:'#ddd', fontFamily:F, lineHeight:'1.4', marginBottom:'4px' }}>{p.title}</div>
@@ -840,9 +825,9 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
                               </div>
                             </div>
                           </a>
-                        )) : (
-                          <div style={{ fontSize:'12px', color:'#555', fontFamily:F, padding:'8px' }}>No posts found.</div>
-                        )}
+                        )) : (!loading && posts !== undefined && (
+                          <div style={{ fontSize:'12px', color:'#555', fontFamily:F, padding:'8px' }}>No recent posts found.</div>
+                        ))}
                       </div>
                     )}
                   </td>
@@ -857,12 +842,14 @@ function ReputationSection({ competitors, reputationData, getRepK, StarRating, R
                 const summary = summaries[c.id];
                 const loading = summaryLoading[c.id];
                 const posts = redditPosts[c.id];
+                const postsLoaded = posts !== undefined;
                 return (
                   <td key={c.id} style={CELL}>
                     {!summary && !loading && (
-                      <button onClick={() => handleSummarize(c)}
-                        style={{ fontSize:'11px', padding:'5px 10px', background:'transparent', border:'1px solid #333', borderRadius:'5px', color:'#b0ffd8', cursor:'pointer', fontFamily:F, letterSpacing:'0.5px', display:'block', width:'100%' }}>
-                        {posts === undefined ? 'LOAD POSTS FIRST' : 'GENERATE SUMMARY ✦'}
+                      <button
+                        onClick={() => postsLoaded ? generateSummary(c.id, c.name, posts, rep.trustpilot) : null}
+                        style={{ fontSize:'11px', padding:'5px 10px', background:'transparent', border:`1px solid ${postsLoaded ? '#2a3a2a' : '#222'}`, borderRadius:'5px', color: postsLoaded ? '#b0ffd8' : '#444', cursor: postsLoaded ? 'pointer' : 'default', fontFamily:F, letterSpacing:'0.5px', display:'block', width:'100%' }}>
+                        {postsLoaded ? 'GENERATE SUMMARY ✦' : 'LOAD POSTS FIRST'}
                       </button>
                     )}
                     {loading && (
@@ -907,6 +894,7 @@ export default function Home() {
   const [analysisSortBy, setAnalysisSortBy] = useState('name');
   const [analysisMarket, setAnalysisMarket] = useState('ALL');
   const [intelMarket, setIntelMarket] = useState('ALL');
+  const [communityScans, setCommunityScans] = useState({});
 
   // ── Persist to localStorage ──────────────────────────────────────
   useEffect(() => {
@@ -936,6 +924,7 @@ export default function Home() {
     { id: 'pricing', label: 'PRICING' },
     { id: 'marketintel', label: 'MARKET INTEL' },
     { id: 'peptideguide', label: 'PEPTIDE GUIDE' },
+    { id: 'communityintel', label: 'COMMUNITY INTEL' },
     { id: 'settings', label: 'SETTINGS' },
   ];
 
@@ -2008,6 +1997,160 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
         {/* ── PRICING ────────────────────────────────────────────── */}
         {activePage === 'pricing' && <PricingTab />}
 
+        {/* ── COMMUNITY INTEL ────────────────────────────────────── */}
+        {activePage === 'communityintel' && (
+          <div>
+            <h1 style={H1}>COMMUNITY INTEL</h1>
+            <p style={SUB}>Live reputation scan across Reddit, forums, review sites and the web</p>
+
+            {competitors.length === 0 ? (
+              <div className="aria-card" style={CARD}>
+                <h3 style={H3}>NO COMPETITORS YET</h3>
+                <p style={P}>Add competitors first, then scan their community reputation here.</p>
+                <button style={{ ...BTN_PRIMARY, marginTop:'12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ background:'#1a1a1a', border:'1px solid #252525', borderRadius:'8px', padding:'12px 16px', marginBottom:'20px', display:'flex', gap:'10px', alignItems:'flex-start' }}>
+                  <span style={{ color:'#b0d4ff', fontSize:'16px' }}>ℹ</span>
+                  <p style={{ fontSize:'12px', color:'#666', margin:0, lineHeight:'1.7', fontFamily:FF }}>
+                    Each scan searches Reddit, SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and the broader web for customer mentions. Takes 10–15 seconds. Results are AI-generated from live web search data.
+                  </p>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:'16px' }}>
+                  {competitors.map(c => {
+                    const scan = communityScans[c.id] || { status:'idle' };
+                    const isLoading = scan.status === 'loading';
+
+                    const doScan = async () => {
+                      setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading' } }));
+                      const tpMap = {
+                        'GROWTH GUYS': null,
+                        'PURITY PEPTIDES': null,
+                        'CORE PEPTIDES': { stars:4.8, count:120 },
+                        'BIOTECH PEPTIDES': { stars:5.0, count:334 },
+                        'PRIME PEPTIDES': { stars:4.7, count:45 },
+                        'ONYX BIOLABS': { stars:5.0, count:20 },
+                      };
+                      const tp = Object.entries(tpMap).find(([k]) => c.name.includes(k.split(' ')[0]))?.[1] || null;
+                      const tpContext = tp ? `They have ${tp.count} Trustpilot reviews averaging ${tp.stars}/5 stars.` : 'No Trustpilot profile found.';
+                      const prompt = `You are a competitive intelligence analyst. Search the web for customer reviews, forum posts, Reddit discussions, and any public mentions of "${c.name}" (a research peptide vendor${c.country==='CA' ? ' based in Canada' : ' based in the USA'}).\n\n${tpContext}\n\nSearch Reddit (r/Peptides, r/PeptidesGrowth, r/semaglutide, r/researchchemicals), SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and any other relevant forums or review sites.\n\nReturn ONLY a JSON object with no markdown or backticks:\n{"summary":"2-3 sentence overall reputation summary","positive":"main praise in 10 words max","negative":"main complaint in 10 words max","neutral":"notable neutral observation in 10 words or null","sources":["list","of","platforms","found"],"sentimentScore":0-100,"watchFlag":true or false,"verdict":"one sentence actionable insight for a competitor monitoring this vendor","latestActivity":"description of most recent mention found with approximate date"}`;
+                      try {
+                        const response = await fetch('https://api.anthropic.com/v1/messages', {
+                          method:'POST',
+                          headers:{ 'Content-Type':'application/json' },
+                          body: JSON.stringify({
+                            model:'claude-sonnet-4-20250514',
+                            max_tokens:1000,
+                            tools:[{ type:'web_search_20250305', name:'web_search' }],
+                            messages:[{ role:'user', content:prompt }]
+                          })
+                        });
+                        const data = await response.json();
+                        const textBlock = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+                        const jsonMatch = textBlock.match(/\{[\s\S]*\}/);
+                        if (!jsonMatch) throw new Error('No JSON in response');
+                        const result = JSON.parse(jsonMatch[0]);
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'done', result, scannedAt: new Date().toLocaleTimeString() } }));
+                      } catch(e) {
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
+                      }
+                    };
+
+                    return (
+                      <div key={c.id} className="aria-card" style={{ ...CARD, borderColor: scan.status==='done' ? '#2a3a2a' : '#2a2a2a' }}>
+                        {/* Card header */}
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+                          <div>
+                            <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'3px' }}>
+                              <span style={{ fontSize:'12px', fontWeight:'600', color:'#f5e6e0', letterSpacing:'1px', fontFamily:FF }}>{c.name}</span>
+                              {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background:c.country==='CA'?'#281e0a':'#0a1428', border:`1px solid ${c.country==='CA'?'#ffe0a0':'#b0d4ff'}`, color:c.country==='CA'?'#ffe0a0':'#b0d4ff' }}>{c.country}</span>}
+                            </div>
+                            <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize:'11px', color:'#555', textDecoration:'none', fontFamily:FF }}>{c.website}</a>
+                          </div>
+                          {scan.status==='done' && (
+                            <div style={{ textAlign:'right' }}>
+                              <div style={{ fontSize:'16px', fontWeight:'600', color: scan.result.sentimentScore>=70?'#b0ffd8':scan.result.sentimentScore>=40?'#ffe0a0':'#ffb0e0', fontFamily:FF }}>{scan.result.sentimentScore}</div>
+                              <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FF }}>Score</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Scan button */}
+                        {scan.status !== 'done' && (
+                          <button onClick={doScan} disabled={isLoading}
+                            style={{ width:'100%', padding:'10px', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor:isLoading?'default':'pointer', fontFamily:FF, letterSpacing:'0.5px', textTransform:'uppercase', transition:'all 0.15s',
+                              border: isLoading?'1px solid #ffe0a0':'1px solid #f5e6e0',
+                              background: isLoading?'transparent':'#f5e6e0',
+                              color: isLoading?'#ffe0a0':'#181818',
+                              opacity: isLoading?0.8:1 }}>
+                            {isLoading ? '⟳ SCANNING THE WEB...' : 'SCAN COMMUNITY INTEL'}
+                          </button>
+                        )}
+
+                        {/* Error */}
+                        {scan.status==='error' && (
+                          <div>
+                            <p style={{ fontSize:'12px', color:'#ffb0e0', marginBottom:'8px', fontFamily:FF }}>Scan failed — {scan.error}</p>
+                            <button onClick={doScan} style={{ ...BTN, fontSize:'11px', padding:'5px 12px' }}>TRY AGAIN</button>
+                          </div>
+                        )}
+
+                        {/* Results */}
+                        {scan.status==='done' && scan.result && (
+                          <div>
+                            {/* Summary */}
+                            <p style={{ fontSize:'13px', color:'#ccc', lineHeight:'1.8', marginBottom:'12px', fontFamily:FF }}>{scan.result.summary}</p>
+
+                            {/* Sentiment pills */}
+                            <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'12px' }}>
+                              <span style={{ fontSize:'11px', padding:'4px 10px', borderRadius:'5px', background:'#0a1e14', border:'1px solid #b0ffd8', color:'#b0ffd8', fontFamily:FF }}>👍 {scan.result.positive}</span>
+                              <span style={{ fontSize:'11px', padding:'4px 10px', borderRadius:'5px', background:'#280a1e', border:'1px solid #ffb0e0', color:'#ffb0e0', fontFamily:FF }}>👎 {scan.result.negative}</span>
+                              {scan.result.neutral && <span style={{ fontSize:'11px', padding:'4px 10px', borderRadius:'5px', background:'#1a1a1a', border:'1px solid #444', color:'#888', fontFamily:FF }}>≈ {scan.result.neutral}</span>}
+                            </div>
+
+                            {/* Latest activity */}
+                            {scan.result.latestActivity && (
+                              <div style={{ fontSize:'11px', color:'#666', marginBottom:'10px', fontFamily:FF, padding:'6px 10px', background:'#141414', borderRadius:'5px', borderLeft:'2px solid #333' }}>
+                                Latest: {scan.result.latestActivity}
+                              </div>
+                            )}
+
+                            {/* Sources */}
+                            {scan.result.sources && scan.result.sources.length > 0 && (
+                              <div style={{ marginBottom:'10px' }}>
+                                <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'5px', fontFamily:FF }}>Sources searched</div>
+                                <div style={{ display:'flex', flexWrap:'wrap', gap:'4px' }}>
+                                  {scan.result.sources.map((s,i) => (
+                                    <span key={i} style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:'#1a1a1a', border:'1px solid #2a2a2a', color:'#666', fontFamily:FF }}>{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Verdict */}
+                            <div style={{ padding:'10px 12px', borderRadius:'6px', fontSize:'12px', lineHeight:'1.6', fontFamily:FF, marginBottom:'10px',
+                              background: scan.result.watchFlag?'#1a1a0a':'#0a1a0a',
+                              border: `1px solid ${scan.result.watchFlag?'#cc9040':'#40c080'}`,
+                              color: scan.result.watchFlag?'#ffe0a0':'#b0ffd8' }}>
+                              {scan.result.watchFlag ? '⚠ ' : '✓ '}{scan.result.verdict}
+                            </div>
+
+                            {/* Footer */}
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                              <span style={{ fontSize:'10px', color:'#444', fontFamily:FF }}>Scanned {scan.scannedAt}</span>
+                              <button onClick={doScan} style={{ fontSize:'10px', color:'#555', background:'none', border:'none', cursor:'pointer', fontFamily:FF, padding:0 }}>↺ rescan</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
                 {/* ── SETTINGS ───────────────────────────────────────────── */}
         {activePage === 'settings' && (
