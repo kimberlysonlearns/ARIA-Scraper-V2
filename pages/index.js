@@ -1934,56 +1934,6 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     { label: 'Product count', render: (k, c) => <span style={{ fontSize: '22px', fontFamily: F, color: '#f5e6e0', fontWeight: '500' }}>{((scrapeResults[c.id]?.insights?.[0]?.items||[]).length || k.productCount) || '—'}</span> },
                     { label: 'Unique features', render: (k) => (k.uniqueFeatures||[]).length > 0 ? <div>{(k.uniqueFeatures||[]).map((f,i) => <Pill key={i} text={f} type="purple" />)}</div> : <None /> },
                   ]} />
-
-                  {/* ── REPUTATION ── */}
-                  {(() => {
-                    const reputationData = {
-                      'GROWTH GUYS': {
-                        trustpilot: null, trustpilotUrl: null,
-                        forums: [
-                          { name: 'SteroidSourceTalk', url: 'https://steroidsourcetalk.cc/index.php?threads/source-growth-guys-the-best-hgh-in-canada-at-the-best-prices.14642/' },
-                          { name: 'MesoRX', url: 'https://thinksteroids.com/community/threads/growth-guys-canadian-domestic-hgh.134407506/' },
-                          { name: 'Canadian Brawn', url: 'https://www.canadianbrawn.com/forums/growth-guys-canada.178/' },
-                          { name: 'Eroids', url: 'https://www.eroids.com/reviews/growthguys.ca' },
-                        ],
-                        redditQuery: 'growth guys peptides canada',
-                      },
-                      'PURITY PEPTIDES': { trustpilot: null, trustpilotUrl: null, forums: [], redditQuery: 'purity peptides canada' },
-                      'CORE PEPTIDES': { trustpilot: { stars: 4.8, count: 120 }, trustpilotUrl: 'https://www.trustpilot.com/review/corepeptides.com', forums: [], redditQuery: 'core peptides review' },
-                      'BIOTECH PEPTIDES': { trustpilot: { stars: 5.0, count: 334 }, trustpilotUrl: 'https://www.trustpilot.com/review/biotechpeptides.com', forums: [], redditQuery: 'biotech peptides review' },
-                      'PRIME PEPTIDES': { trustpilot: { stars: 4.7, count: 45 }, trustpilotUrl: 'https://www.trustpilot.com/review/primepeptides.co', forums: [], redditQuery: 'prime peptides review' },
-                      'ONYX BIOLABS': { trustpilot: { stars: 5.0, count: 20 }, trustpilotUrl: 'https://www.trustpilot.com/review/onyxbiolabs.com', forums: [], redditQuery: 'onyx biolabs review' },
-                    };
-                    const getRepK = (c) => {
-                      const n = c.name.toUpperCase();
-                      const entry = Object.entries(reputationData).find(([k]) => n.includes(k.split(' ')[0]));
-                      return entry?.[1] || { forums: [], redditQuery: c.name.toLowerCase() };
-                    };
-                    const StarRating = ({ stars }) => {
-                      const full = Math.floor(stars);
-                      const half = stars % 1 >= 0.5;
-                      return (
-                        <div style={{ display:'flex', alignItems:'center', gap:'4px', justifyContent:'center' }}>
-                          <span style={{ fontSize:'13px', color:'#ffe0a0' }}>{'\u2605'.repeat(full)}{half ? '\u00bd' : ''}{'\u2606'.repeat(5-full-(half?1:0))}</span>
-                          <span style={{ fontSize:'12px', color:'#f5e6e0', fontWeight:'600', fontFamily:F }}>{stars.toFixed(1)}</span>
-                        </div>
-                      );
-                    };
-                    return (
-                      <ReputationSection
-                        competitors={filteredByMarket}
-                        reputationData={reputationData}
-                        getRepK={getRepK}
-                        StarRating={StarRating}
-                        ROW_LABEL={ROW_LABEL}
-                        COL_HEAD={COL_HEAD}
-                        CELL={CELL}
-                        F={F}
-                        MarketBadge={MarketBadge}
-                        None={None}
-                      />
-                    );
-                  })()}
                   </>}
                 </>
               );
