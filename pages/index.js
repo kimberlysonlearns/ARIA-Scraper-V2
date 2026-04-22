@@ -696,6 +696,7 @@ export default function Home() {
   const [cadUsdRate, setCadUsdRate] = useState(0.72);
   const [editingCompetitor, setEditingCompetitor] = useState(null);
   const [aboutOpen, setAboutOpen] = useState({});
+  const [productsOpen, setProductsOpen] = useState({});
   const [compNotes, setCompNotes] = useState({});
   const [scanHistory, setScanHistory] = useState({});
   const [showModal, setShowModal] = useState(false);
@@ -1190,16 +1191,15 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                             {competitorChanges.length} change{competitorChanges.length > 1 ? 's' : ''}
                           </span>
                         )}
-                        <button style={{ ...BTN, padding: '5px 11px', fontSize: '11px', borderColor: isAboutOpen ? '#f5e6e0' : '#444', color: isAboutOpen ? '#f5e6e0' : '#bbb' }}
+                        <button style={{ ...BTN, padding: '7px 14px', fontSize: '12px', borderColor: isAboutOpen ? '#f5e6e0' : '#444', color: isAboutOpen ? '#f5e6e0' : '#bbb' }}
                           onClick={() => setAboutOpen(prev => ({ ...prev, [c.id]: !prev[c.id] }))}>
                           ⓘ ABOUT
                         </button>
-                        <button style={{ ...BTN, padding: '5px 11px', fontSize: '11px' }}
+                        <button style={{ ...BTN, padding: '7px 14px', fontSize: '12px' }}
                           onClick={() => setEditingCompetitor({ ...c })}>EDIT</button>
-                        <button style={{ ...BTN_PRIMARY, padding: '7px 14px', fontSize: '14px', opacity: scraping[c.id] ? 0.6 : 1 }} onClick={() => handleScrape(c)} disabled={scraping[c.id]}>
+                        <button style={{ ...BTN_PRIMARY, padding: '7px 14px', fontSize: '12px', opacity: scraping[c.id] ? 0.6 : 1 }} onClick={() => handleScrape(c)} disabled={scraping[c.id]}>
                           {scraping[c.id] ? 'SCANNING...' : 'CHECK NOW'}
                         </button>
-                        <button style={{ ...BTN, padding: '7px 14px', fontSize: '14px' }} onClick={() => handleDelete(c.id)}>DELETE</button>
                       </div>
                     </div>
 
@@ -1293,13 +1293,44 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '11px', color: '#555', fontFamily: FF }}>Last scan: {fmt(result.scrapedAt)}</span>
-                            <button onClick={() => setActivePage('analysis')} style={{ fontSize: '10px', padding: '4px 10px', background: 'transparent', border: '1px solid #444', borderRadius: '4px', color: '#b0d4ff', cursor: 'pointer', fontFamily: FF, letterSpacing: '0.5px' }}>VIEW IN ANALYSIS →</button>
+                            <button onClick={() => setProductsOpen(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
+                              style={{ fontSize: '11px', padding: '5px 12px', background: 'transparent', border: '1px solid #333', borderRadius: '5px', color: '#b0d4ff', cursor: 'pointer', fontFamily: FF, letterSpacing: '0.5px' }}>
+                              {productsOpen[c.id] ? 'HIDE PRODUCTS ▲' : 'VIEW PRODUCTS ▼'}
+                            </button>
                           </div>
+                          {productsOpen[c.id] && (
+                            <div style={{ marginTop: '10px', display: 'grid', gap: '4px', maxHeight: '360px', overflowY: 'auto' }}>
+                              {products.map((item, pi) => {
+                                const parts = item.split(' — ');
+                                const name = parts[0]?.trim();
+                                const pricePart = parts.find(p => p.includes('$')) || '';
+                                const cat = categorize(name);
+                                const cc = CATEGORY_COLORS[cat] || CATEGORY_COLORS['Other'];
+                                const changed = priceChanges.find(ch => ch.competitor === c.name && ch.product.toLowerCase() === name.toLowerCase());
+                                return (
+                                  <div key={pi} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: changed ? '#281e0a' : '#161616', borderRadius: '4px', border: `1px solid ${changed ? '#cc9040' : '#1e1e1e'}` }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                      <span style={{ fontSize: '13px', color: '#ccc', fontFamily: FF }}>{name}</span>
+                                      <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '99px', background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, whiteSpace: 'nowrap' }}>{cat}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                      {changed && <span style={{ fontSize: '10px', color: changed.direction === 'down' ? '#b0ffd8' : '#ffb0e0' }}>was {changed.from} {changed.direction === 'down' ? '↓' : '↑'}</span>}
+                                      <span style={{ fontSize: '13px', color: '#f5e6e0', fontWeight: '500', fontFamily: FF }}>{pricePart}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <p style={{ fontSize: '14px', color: '#ffb0e0' }}>Scan failed: {result.error}</p>
+                        <p style={{ fontSize: '14px', color: '#ffb0e0', fontFamily: FF }}>Scan failed: {result.error}</p>
                       )
                     )}
+                    {/* Delete button — bottom right */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                      <button style={{ ...BTN, padding: '6px 14px', fontSize: '11px', borderColor: '#4a1a1a', color: '#ff8080', background: '#1a0a0a' }} onClick={() => handleDelete(c.id)}>DELETE</button>
+                    </div>
                   </div>
                 );
               })}
