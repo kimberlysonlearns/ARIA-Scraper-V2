@@ -2019,7 +2019,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
                       }
                       if (i < competitors.length - 1) {
-                        let secs = 30;
+                        let secs = 60;
                         setCommunityScans(prev => ({ ...prev, _scanAllProgress: { current: i + 1, total: competitors.length, countdown: secs, phase: 'waiting' } }));
                         await new Promise(resolve => {
                           const tick = setInterval(() => {
@@ -2028,6 +2028,31 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                             if (secs <= 0) { clearInterval(tick); resolve(); }
                           }, 1000);
                         });
+                      }
+                    }
+                    // Auto-retry any that failed
+                    const failed = competitors.filter(c => communityScans[c.id]?.status === 'error');
+                    for (let i = 0; i < failed.length; i++) {
+                      const c = failed[i];
+                      let secs = 60;
+                      setCommunityScans(prev => ({ ...prev, _scanAllProgress: { current: competitors.length, total: competitors.length, countdown: secs, phase: 'waiting' } }));
+                      await new Promise(resolve => {
+                        const tick = setInterval(() => {
+                          secs--;
+                          setCommunityScans(prev => ({ ...prev, _scanAllProgress: { ...prev._scanAllProgress, countdown: secs } }));
+                          if (secs <= 0) { clearInterval(tick); resolve(); }
+                        }, 1000);
+                      });
+                      setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading', expandedSection: prev[c.id]?.expandedSection }, _scanAllProgress: { current: competitors.length, total: competitors.length, countdown: 0, phase: 'scanning' } }));
+                      const tpMap2 = { 'GROWTH GUYS': null, 'PURITY PEPTIDES': null, 'CORE PEPTIDES': { stars:4.8, count:120 }, 'BIOTECH PEPTIDES': { stars:5.0, count:334 }, 'PRIME PEPTIDES': { stars:4.7, count:45 }, 'ONYX BIOLABS': { stars:5.0, count:20 } };
+                      const tp2 = Object.entries(tpMap2).find(([k]) => c.name.includes(k.split(' ')[0]))?.[1] || null;
+                      try {
+                        const response = await fetch('/api/community-scan', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ competitorName: c.name, country: c.country, trustpilot: tp2 }) });
+                        const data = await response.json();
+                        if (data.error) throw new Error(data.error);
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'done', result: data.result, scannedAt: new Date().toLocaleTimeString(), expandedSection: prev[c.id]?.expandedSection } }));
+                      } catch(e) {
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
                       }
                     }
                     setCommunityScans(prev => ({ ...prev, _scanAllActive: false, _scanAllProgress: { current: competitors.length, total: competitors.length, countdown: 0, phase: 'done' } }));
