@@ -10,14 +10,38 @@ export default async function handler(req, res) {
     ? `They have ${trustpilot.count} Trustpilot reviews averaging ${trustpilot.stars}/5 stars.`
     : 'No Trustpilot profile found.';
 
-  const prompt = `You are a competitive intelligence analyst. Search the web for customer reviews, forum posts, Reddit discussions, and any public mentions of "${competitorName}" (a research peptide vendor${country === 'CA' ? ' based in Canada' : ' based in the USA'}).
+  const prompt = `You are a competitive intelligence analyst. Search the web thoroughly for customer reviews, forum posts, Reddit discussions, and public mentions of "${competitorName}" (a research peptide vendor${country === 'CA' ? ' based in Canada' : ' based in the USA'}).
 
 ${tpContext}
 
-Search Reddit (r/Peptides, r/PeptidesGrowth, r/semaglutide, r/researchchemicals), SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and any other relevant forums or review sites.
+Search Reddit (r/Peptides, r/PeptidesGrowth, r/semaglutide, r/researchchemicals), SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and any other relevant forums or review sites. Find actual customer quotes where possible.
 
 Return ONLY a valid JSON object with no markdown, no backticks, no explanation:
-{"summary":"2-3 sentence overall reputation summary based on what you find","positive":"main praise customers give (10 words max)","negative":"main complaint customers give (10 words max)","neutral":"notable neutral observation (10 words max) or null","sources":["list","of","platforms","where","mentions","found"],"sentimentScore":0-100,"watchFlag":true or false,"verdict":"one sentence actionable insight for a competitor monitoring this vendor","latestActivity":"description of most recent mention found with approximate date"}`;
+{
+  "summary": "3-4 sentence overall reputation summary",
+  "sentimentScore": 0-100,
+  "watchFlag": true or false,
+  "verdict": "one sentence actionable insight for a competitor",
+  "latestActivity": "most recent mention with approximate date",
+  "sources": ["platform1", "platform2"],
+  "positiveReviews": [
+    {"quote": "actual customer quote or paraphrase from a real post", "source": "platform name", "date": "approx date"},
+    {"quote": "another positive quote", "source": "platform", "date": "approx date"},
+    {"quote": "third positive quote", "source": "platform", "date": "approx date"}
+  ],
+  "negativeReviews": [
+    {"quote": "actual complaint quote or paraphrase from a real post", "source": "platform name", "date": "approx date"},
+    {"quote": "another complaint", "source": "platform", "date": "approx date"},
+    {"quote": "third complaint", "source": "platform", "date": "approx date"}
+  ],
+  "neutralObservations": [
+    {"quote": "neutral observation from a post", "source": "platform", "date": "approx date"},
+    {"quote": "another observation", "source": "platform", "date": "approx date"}
+  ],
+  "positive": "main praise in 10 words",
+  "negative": "main complaint in 10 words",
+  "neutral": "key neutral observation in 10 words or null"
+}`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -30,7 +54,7 @@ Return ONLY a valid JSON object with no markdown, no backticks, no explanation:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
+        max_tokens: 2000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }],
       }),
