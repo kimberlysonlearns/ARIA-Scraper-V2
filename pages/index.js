@@ -687,6 +687,207 @@ function PricingTab() {
   );
 }
 
+// ── Reputation Section Component ─────────────────────────────────────
+function ReputationSection({ competitors, reputationData, getRepK, StarRating, ROW_LABEL, COL_HEAD, CELL, F, MarketBadge, None }) {
+  const [redditPosts, setRedditPosts] = useState({});
+  const [redditLoading, setRedditLoading] = useState({});
+  const [summaries, setSummaries] = useState({});
+  const [summaryLoading, setSummaryLoading] = useState({});
+  const [expandedComp, setExpandedComp] = useState(null);
+
+  const fetchReddit = async (competitorId, query) => {
+    if (redditPosts[competitorId] || redditLoading[competitorId]) return;
+    setRedditLoading(prev => ({ ...prev, [competitorId]: true }));
+    try {
+      const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=new&limit=8&t=year`;
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await res.json();
+      const posts = (data?.data?.children || []).map(p => ({
+        title: p.data.title,
+        subreddit: p.data.subreddit,
+        score: p.data.score,
+        url: `https://reddit.com${p.data.permalink}`,
+        created: new Date(p.data.created_utc * 1000).toLocaleDateString(),
+        selftext: (p.data.selftext || '').slice(0, 300),
+      }));
+      setRedditPosts(prev => ({ ...prev, [competitorId]: posts }));
+    } catch (e) {
+      setRedditPosts(prev => ({ ...prev, [competitorId]: [] }));
+    }
+    setRedditLoading(prev => ({ ...prev, [competitorId]: false }));
+  };
+
+  const generateSummary = async (competitorId, competitorName, posts, trustpilot) => {
+    if (summaries[competitorId] || summaryLoading[competitorId]) return;
+    setSummaryLoading(prev => ({ ...prev, [competitorId]: true }));
+    try {
+      const postText = posts.slice(0, 6).map(p => `- "${p.title}" (r/${p.subreddit}, ${p.created}): ${p.selftext}`).join('\n');
+      const tpText = trustpilot ? `Trustpilot: ${trustpilot.stars}/5 stars from ${trustpilot.count} reviews.` : 'No Trustpilot data.';
+      const prompt = `You are analyzing customer sentiment for a peptide research chemical vendor called "${competitorName}". ${tpText}\n\nRecent Reddit posts mentioning them:\n${postText || 'No Reddit posts found.'}\n\nProvide a concise 3-sentence summary covering: (1) overall reputation, (2) most common praise or complaint, (3) any red flags or standout positives. Be direct and analytical, not promotional.`;
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] }),
+      });
+      const data = await response.json();
+      const text = data?.content?.[0]?.text || 'Could not generate summary.';
+      setSummaries(prev => ({ ...prev, [competitorId]: text }));
+    } catch (e) {
+      setSummaries(prev => ({ ...prev, [competitorId]: 'Summary unavailable.' }));
+    }
+    setSummaryLoading(prev => ({ ...prev, [competitorId]: false }));
+  };
+
+  const handleExpand = (c) => {
+    const rep = getRepK(c);
+    if (expandedComp === c.id) { setExpandedComp(null); return; }
+    setExpandedComp(c.id);
+    fetchReddit(c.id, rep.redditQuery);
+  };
+
+  const handleSummarize = (c) => {
+    const rep = getRepK(c);
+    const posts = redditPosts[c.id] || [];
+    generateSummary(c.id, c.name, posts, rep.trustpilot);
+  };
+
+  const FF = "'Century Gothic', 'Trebuchet MS', sans-serif";
+
+  return (
+    <div style={{ background:'#181818', border:'1px solid #2a2a2a', borderRadius:'8px', marginBottom:'14px', overflow:'hidden' }}>
+      <div style={{ padding:'10px 16px', background:'#1e1e1e', borderBottom:'1px solid #2a2a2a', fontSize:'11px', fontWeight:'600', color:'#bbb', textTransform:'uppercase', letterSpacing:'1px', fontFamily:F }}>
+        Reputation & Reviews
+      </div>
+      <div style={{ overflowX:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...ROW_LABEL, borderTop:'none', background:'#1a1a1a', width:'160px' }}></th>
+              {competitors.map(c => (
+                <th key={c.id} style={{ ...COL_HEAD, borderTop:'none', textAlign:'center' }}>
+                  <div><MarketBadge country={c.country || 'US'} /></div>
+                  <div>{c.name}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {/* Trustpilot */}
+            <tr>
+              <td style={ROW_LABEL}>Trustpilot</td>
+              {competitors.map(c => {
+                const rep = getRepK(c);
+                return (
+                  <td key={c.id} style={{ ...CELL, textAlign:'center' }}>
+                    {rep.trustpilot ? (
+                      <div>
+                        <StarRating stars={rep.trustpilot.stars} />
+                        <div style={{ fontSize:'11px', color:'#666', fontFamily:F, marginTop:'2px' }}>{rep.trustpilot.count} reviews</div>
+                        <a href={rep.trustpilotUrl} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize:'10px', color:'#b0d4ff', textDecoration:'none', display:'inline-block', marginTop:'4px', padding:'2px 8px', border:'1px solid #1a2a3a', borderRadius:'4px', fontFamily:F }}>
+                          VIEW →
+                        </a>
+                      </div>
+                    ) : <None />}
+                  </td>
+                );
+              })}
+            </tr>
+            {/* Forums */}
+            <tr>
+              <td style={ROW_LABEL}>Forums</td>
+              {competitors.map(c => {
+                const rep = getRepK(c);
+                return (
+                  <td key={c.id} style={CELL}>
+                    {rep.forums && rep.forums.length > 0 ? (
+                      <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                        {rep.forums.map((f, fi) => (
+                          <a key={fi} href={f.url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize:'11px', color:'#a0f0e8', textDecoration:'none', padding:'3px 8px', border:'1px solid #0a2222', borderRadius:'4px', background:'#0a1818', display:'block', fontFamily:F }}>
+                            {f.name} →
+                          </a>
+                        ))}
+                      </div>
+                    ) : <None />}
+                  </td>
+                );
+              })}
+            </tr>
+            {/* Reddit */}
+            <tr>
+              <td style={ROW_LABEL}>Reddit Posts</td>
+              {competitors.map(c => {
+                const rep = getRepK(c);
+                const posts = redditPosts[c.id];
+                const loading = redditLoading[c.id];
+                const isExpanded = expandedComp === c.id;
+                return (
+                  <td key={c.id} style={{ ...CELL, textAlign:'center' }}>
+                    <button onClick={() => handleExpand(c)}
+                      style={{ fontSize:'11px', padding:'5px 10px', background: isExpanded ? '#1e0a28' : 'transparent', border:`1px solid ${isExpanded ? '#e0b0ff' : '#333'}`, borderRadius:'5px', color: isExpanded ? '#e0b0ff' : '#aaa', cursor:'pointer', fontFamily:F, letterSpacing:'0.5px' }}>
+                      {loading ? 'LOADING...' : isExpanded ? 'HIDE ▲' : 'LOAD POSTS ▼'}
+                    </button>
+                    {isExpanded && (
+                      <div style={{ marginTop:'10px', textAlign:'left' }}>
+                        {posts && posts.length > 0 ? posts.map((p, pi) => (
+                          <a key={pi} href={p.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:'none', display:'block', marginBottom:'6px' }}>
+                            <div style={{ background:'#111', border:'1px solid #1e1e1e', borderRadius:'5px', padding:'8px 10px' }}>
+                              <div style={{ fontSize:'12px', color:'#ddd', fontFamily:F, lineHeight:'1.4', marginBottom:'4px' }}>{p.title}</div>
+                              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                <span style={{ fontSize:'10px', color:'#555', fontFamily:F }}>r/{p.subreddit}</span>
+                                <span style={{ fontSize:'10px', color:'#555', fontFamily:F }}>{p.created} · ↑{p.score}</span>
+                              </div>
+                            </div>
+                          </a>
+                        )) : (
+                          <div style={{ fontSize:'12px', color:'#555', fontFamily:F, padding:'8px' }}>No posts found.</div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+            {/* AI Summary */}
+            <tr>
+              <td style={ROW_LABEL}>AI Summary</td>
+              {competitors.map(c => {
+                const rep = getRepK(c);
+                const summary = summaries[c.id];
+                const loading = summaryLoading[c.id];
+                const posts = redditPosts[c.id];
+                return (
+                  <td key={c.id} style={CELL}>
+                    {!summary && !loading && (
+                      <button onClick={() => handleSummarize(c)}
+                        style={{ fontSize:'11px', padding:'5px 10px', background:'transparent', border:'1px solid #333', borderRadius:'5px', color:'#b0ffd8', cursor:'pointer', fontFamily:F, letterSpacing:'0.5px', display:'block', width:'100%' }}>
+                        {posts === undefined ? 'LOAD POSTS FIRST' : 'GENERATE SUMMARY ✦'}
+                      </button>
+                    )}
+                    {loading && (
+                      <div style={{ fontSize:'11px', color:'#555', fontFamily:F, fontStyle:'italic' }}>Analysing...</div>
+                    )}
+                    {summary && (
+                      <div>
+                        <div style={{ fontSize:'12px', color:'#ccc', fontFamily:F, lineHeight:'1.7' }}>{summary}</div>
+                        <button onClick={() => setSummaries(prev => { const n={...prev}; delete n[c.id]; return n; })}
+                          style={{ fontSize:'9px', color:'#555', background:'none', border:'none', cursor:'pointer', fontFamily:F, marginTop:'6px', padding:0 }}>
+                          regenerate
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [activePage, setActivePage] = useState('dashboard');
   const [competitors, setCompetitors] = useState([]);
@@ -1744,6 +1945,56 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     { label: 'Product count', render: (k, c) => <span style={{ fontSize: '22px', fontFamily: F, color: '#f5e6e0', fontWeight: '500' }}>{((scrapeResults[c.id]?.insights?.[0]?.items||[]).length || k.productCount) || '—'}</span> },
                     { label: 'Unique features', render: (k) => (k.uniqueFeatures||[]).length > 0 ? <div>{(k.uniqueFeatures||[]).map((f,i) => <Pill key={i} text={f} type="purple" />)}</div> : <None /> },
                   ]} />
+
+                  {/* ── REPUTATION ── */}
+                  {(() => {
+                    const reputationData = {
+                      'GROWTH GUYS': {
+                        trustpilot: null, trustpilotUrl: null,
+                        forums: [
+                          { name: 'SteroidSourceTalk', url: 'https://steroidsourcetalk.cc/index.php?threads/source-growth-guys-the-best-hgh-in-canada-at-the-best-prices.14642/' },
+                          { name: 'MesoRX', url: 'https://thinksteroids.com/community/threads/growth-guys-canadian-domestic-hgh.134407506/' },
+                          { name: 'Canadian Brawn', url: 'https://www.canadianbrawn.com/forums/growth-guys-canada.178/' },
+                          { name: 'Eroids', url: 'https://www.eroids.com/reviews/growthguys.ca' },
+                        ],
+                        redditQuery: 'growth guys peptides canada',
+                      },
+                      'PURITY PEPTIDES': { trustpilot: null, trustpilotUrl: null, forums: [], redditQuery: 'purity peptides canada' },
+                      'CORE PEPTIDES': { trustpilot: { stars: 4.8, count: 120 }, trustpilotUrl: 'https://www.trustpilot.com/review/corepeptides.com', forums: [], redditQuery: 'core peptides review' },
+                      'BIOTECH PEPTIDES': { trustpilot: { stars: 5.0, count: 334 }, trustpilotUrl: 'https://www.trustpilot.com/review/biotechpeptides.com', forums: [], redditQuery: 'biotech peptides review' },
+                      'PRIME PEPTIDES': { trustpilot: { stars: 4.7, count: 45 }, trustpilotUrl: 'https://www.trustpilot.com/review/primepeptides.co', forums: [], redditQuery: 'prime peptides review' },
+                      'ONYX BIOLABS': { trustpilot: { stars: 5.0, count: 20 }, trustpilotUrl: 'https://www.trustpilot.com/review/onyxbiolabs.com', forums: [], redditQuery: 'onyx biolabs review' },
+                    };
+                    const getRepK = (c) => {
+                      const n = c.name.toUpperCase();
+                      const entry = Object.entries(reputationData).find(([k]) => n.includes(k.split(' ')[0]));
+                      return entry?.[1] || { forums: [], redditQuery: c.name.toLowerCase() };
+                    };
+                    const StarRating = ({ stars }) => {
+                      const full = Math.floor(stars);
+                      const half = stars % 1 >= 0.5;
+                      return (
+                        <div style={{ display:'flex', alignItems:'center', gap:'4px', justifyContent:'center' }}>
+                          <span style={{ fontSize:'13px', color:'#ffe0a0' }}>{'\u2605'.repeat(full)}{half ? '\u00bd' : ''}{'\u2606'.repeat(5-full-(half?1:0))}</span>
+                          <span style={{ fontSize:'12px', color:'#f5e6e0', fontWeight:'600', fontFamily:F }}>{stars.toFixed(1)}</span>
+                        </div>
+                      );
+                    };
+                    return (
+                      <ReputationSection
+                        competitors={filteredByMarket}
+                        reputationData={reputationData}
+                        getRepK={getRepK}
+                        StarRating={StarRating}
+                        ROW_LABEL={ROW_LABEL}
+                        COL_HEAD={COL_HEAD}
+                        CELL={CELL}
+                        F={F}
+                        MarketBadge={MarketBadge}
+                        None={None}
+                      />
+                    );
+                  })()}
                   </>}
                 </>
               );
