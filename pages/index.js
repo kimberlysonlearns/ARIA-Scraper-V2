@@ -704,6 +704,7 @@ export default function Home() {
   const [analysisFilter, setAnalysisFilter] = useState('ALL');
   const [analysisSortBy, setAnalysisSortBy] = useState('name');
   const [analysisMarket, setAnalysisMarket] = useState('ALL');
+  const [intelMarket, setIntelMarket] = useState('ALL');
 
   // ── Persist to localStorage ──────────────────────────────────────
   useEffect(() => {
@@ -1572,6 +1573,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 <button style={{ ...BTN_PRIMARY, marginTop: '12px' }} onClick={() => setActivePage('competitors')}>GO TO COMPETITORS →</button>
               </div>
             ) : (() => {
+              const filteredByMarket = intelMarket === 'ALL' ? competitors : competitors.filter(c => (c.country || 'US') === intelMarket);
               const knownIntel = {
                 'GROWTH GUYS': {
                   freeShipping: 'All orders', flatShipping: 'Canada Post domestic only', dispatchSpeed: 'Same day — tracking within 20 min',
@@ -1631,20 +1633,30 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               };
 
               const getK = (c) => {
-                const name = c.name.toUpperCase().replace(/[^A-Z0-9]/g,'');
-                const entry = Object.entries(knownIntel).find(([k]) => {
-                  const key = k.toUpperCase().replace(/[^A-Z0-9]/g,'');
-                  return name.includes(key) || key.includes(name) || 
-                    name.split('').filter((ch,i)=>key[i]===ch).length/Math.max(name.length,key.length) > 0.8;
-                });
-                return entry?.[1] || {};
+                const n = c.name.toUpperCase().replace(/\s+/g,' ').trim();
+                const aliases = {
+                  'GROWTH GUYS': ['GROWTH GUYS','GROWTHGUYS'],
+                  'PURITY PEPTIDES': ['PURITY PEPTIDES','PURITYPEPTIDES'],
+                  'CORE PEPTIDES': ['CORE PEPTIDES','COREPEPTIDES'],
+                  'BIOTECH PEPTIDES': ['BIOTECH PEPTIDES','BIOTECHPEPTIDES','BIOTECH'],
+                  'PRIME PEPTIDES': ['PRIME PEPTIDES','PRIMEPEPTIDES'],
+                  'ONYX BIOLABS': ['ONYX BIOLABS','ONYX BIO LABS','ONYXBIOLABS','ONYX'],
+                  'NCRP': ['NCRP'],
+                  'PEPTIDE WAREHOUSE': ['PEPTIDE WAREHOUSE','PEPTIDEWAREHOUSE'],
+                };
+                for (const [key, names] of Object.entries(aliases)) {
+                  if (names.some(alias => n.includes(alias) || alias.includes(n))) {
+                    return knownIntel[key] || {};
+                  }
+                }
+                return {};
               };
 
               const F = "'Century Gothic', 'Trebuchet MS', sans-serif";
               const SEC = { background: '#181818', border: '1px solid #2a2a2a', borderRadius: '8px', marginBottom: '14px', overflow: 'hidden' };
               const SEC_HEAD = { padding: '10px 16px', background: '#1e1e1e', borderBottom: '1px solid #2a2a2a', fontSize: '11px', fontFamily: F, fontWeight: '600', color: '#bbb', textTransform: 'uppercase', letterSpacing: '1px' };
               const ROW_LABEL = { padding: '14px 16px', fontSize: '13px', fontFamily: F, color: '#aaa', background: '#161616', width: '170px', minWidth: '170px', verticalAlign: 'top', borderTop: '1px solid #222' };
-              const colW = `${Math.floor(70 / competitors.length)}%`;
+              const colW = `${Math.floor(70 / filteredByMarket.length)}%`;
               const COL_HEAD = { padding: '10px 14px', fontSize: '11px', fontFamily: F, color: '#bbb', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', borderLeft: '1px solid #2a2a2a', width: colW, background: '#1a1a1a' };
               const CELL = { padding: '14px 14px', fontSize: '13px', fontFamily: F, color: '#ddd', borderLeft: '1px solid #222', borderTop: '1px solid #222', verticalAlign: 'top', width: colW };
 
@@ -1668,6 +1680,18 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               const PlainText = ({ text, color }) => <span style={{ fontSize: '13px', fontFamily: F, color: color || '#ccc', lineHeight: '1.6' }}>{text}</span>;
               const CodePill = ({ text }) => <span style={{ fontFamily: 'monospace', fontSize: '11px', padding: '4px 10px', background: '#0a2222', border: '1px solid #a0f0e8', borderRadius: '6px', color: '#a0f0e8', fontWeight: '600', wordBreak: 'break-word', display: 'inline-block', lineHeight: '1.5' }}>{text}</span>;
 
+              const MarketBadge = ({ country }) => {
+                const isCA = country === 'CA';
+                return (
+                  <span style={{ display:'inline-block', marginTop:'4px', fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
+                    background: isCA ? '#281e0a' : '#0a1428',
+                    border: `1px solid ${isCA ? '#ffe0a0' : '#b0d4ff'}`,
+                    color: isCA ? '#ffe0a0' : '#b0d4ff' }}>
+                    {isCA ? '🇨🇦 CA' : '🇺🇸 US'}
+                  </span>
+                );
+              };
+
               const SectionTable = ({ title, rows }) => (
                 <div style={SEC}>
                   <div style={SEC_HEAD}>{title}</div>
@@ -1675,14 +1699,19 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     <thead>
                       <tr>
                         <th style={{ ...ROW_LABEL, borderTop:'none', background:'#1a1a1a' }}></th>
-                        {competitors.map(c => <th key={c.id} style={{ ...COL_HEAD, borderTop:'none' }}>{c.name}</th>)}
+                        {filteredByMarket.map(c => (
+                          <th key={c.id} style={{ ...COL_HEAD, borderTop:'none' }}>
+                            <div>{c.name}</div>
+                            <MarketBadge country={c.country || 'US'} />
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((row, i) => (
                         <tr key={i}>
                           <td style={ROW_LABEL}>{row.label}</td>
-                          {competitors.map(c => <td key={c.id} style={CELL}>{row.render(getK(c), c)}</td>)}
+                          {filteredByMarket.map(c => <td key={c.id} style={CELL}>{row.render(getK(c), c)}</td>)}
                         </tr>
                       ))}
                     </tbody>
@@ -1692,6 +1721,28 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
               return (
                 <>
+                  {/* Market filter */}
+                  <div style={{ display:'flex', gap:'8px', marginBottom:'20px', alignItems:'center', flexWrap:'wrap' }}>
+                    {[['ALL','All Markets'],['CA','🇨🇦 Canada only'],['US','🇺🇸 USA only']].map(([v,label]) => (
+                      <span key={v} onClick={() => setIntelMarket(v)}
+                        style={{ fontSize:'12px', padding:'5px 14px', borderRadius:'99px', cursor:'pointer', userSelect:'none', fontFamily: F,
+                          background: intelMarket===v ? (v==='CA' ? '#281e0a' : v==='US' ? '#0a1428' : '#f5e6e0') : 'transparent',
+                          border: `1px solid ${intelMarket===v ? (v==='CA' ? '#ffe0a0' : v==='US' ? '#b0d4ff' : '#f5e6e0') : '#333'}`,
+                          color: intelMarket===v ? (v==='CA' ? '#ffe0a0' : v==='US' ? '#b0d4ff' : '#181818') : '#888',
+                          fontWeight: intelMarket===v ? '600' : '400' }}>
+                        {label}
+                      </span>
+                    ))}
+                    <span style={{ fontSize:'11px', color:'#555', fontFamily:F }}>
+                      {filteredByMarket.length} competitor{filteredByMarket.length !== 1 ? 's' : ''} shown
+                    </span>
+                  </div>
+                  {filteredByMarket.length === 0 && (
+                    <div className="aria-card" style={CARD}>
+                      <p style={P}>No {intelMarket === 'CA' ? 'Canadian' : 'US'} competitors added yet. Go to Competitors and set the correct country on each card using the EDIT button.</p>
+                    </div>
+                  )}
+                  {filteredByMarket.length > 0 && <>
                   <SectionTable title="Shipping" rows={[
                     { label: 'Free over', render: (k) => k.freeShipping ? <Pill text={`Free over ${k.freeShipping}`} type="green" /> : <None /> },
                     { label: 'Flat rate / other', render: (k) => k.flatShipping ? <PlainText text={k.flatShipping} /> : <None /> },
@@ -1710,7 +1761,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     { label: 'Product count', render: (k, c) => <span style={{ fontSize: '22px', fontFamily: F, color: '#f5e6e0', fontWeight: '500' }}>{((scrapeResults[c.id]?.insights?.[0]?.items||[]).length || k.productCount) || '—'}</span> },
                     { label: 'Unique features', render: (k) => (k.uniqueFeatures||[]).length > 0 ? <div>{(k.uniqueFeatures||[]).map((f,i) => <Pill key={i} text={f} type="purple" />)}</div> : <None /> },
                   ]} />
-
+                  </>}
                 </>
               );
             })()}
