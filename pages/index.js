@@ -1173,23 +1173,6 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 const exclusiveCount = myProducts.filter(p => allCompProducts.filter(x => x === p).length === 1).length;
                 const successfulScans = history.filter(h => h.success).length;
                 const reliability = history.length ? Math.round((successfulScans / history.length) * 100) : null;
-                const pricingTag = (() => {
-                  const avg = myProducts.length;
-                  if (!result?.success) return null;
-                  const myPrices = (result?.insights?.[0]?.items||[]).map(i => parsePrice(i.split(' — ').find(p => p.includes('$')))).filter(Boolean);
-                  if (!myPrices.length) return null;
-                  const myAvg = myPrices.reduce((a,b)=>a+b,0)/myPrices.length;
-                  const allAvgs = competitors.map(comp => {
-                    const r = scrapeResults[comp.id];
-                    const prices = (r?.insights?.[0]?.items||[]).map(i => parsePrice(i.split(' — ').find(p => p.includes('$')))).filter(Boolean);
-                    return prices.length ? prices.reduce((a,b)=>a+b,0)/prices.length : null;
-                  }).filter(Boolean);
-                  if (!allAvgs.length) return null;
-                  const median = allAvgs.sort((a,b)=>a-b)[Math.floor(allAvgs.length/2)];
-                  if (myAvg < median * 0.85) return { label:'BUDGET', color:'#b0ffd8', bg:'#0a1e14', border:'#b0ffd8' };
-                  if (myAvg > median * 1.15) return { label:'PREMIUM', color:'#ffb0e0', bg:'#280a1e', border:'#ffb0e0' };
-                  return { label:'MID', color:'#ffe0a0', bg:'#281e0a', border:'#ffe0a0' };
-                })();
 
                 return (
                   <div key={c.id} className="aria-card" style={{ ...CARD, borderColor: isAboutOpen ? '#3a3a3a' : '#2a2a2a' }}>
@@ -1199,7 +1182,6 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         <h3 style={{ ...H3, margin: 0, display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap' }}>
                           {c.name}
                           {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background: c.country==='CA' ? '#281e0a' : '#0a1428', border: `1px solid ${c.country==='CA' ? '#ffe0a0' : '#b0d4ff'}`, color: c.country==='CA' ? '#ffe0a0' : '#b0d4ff', textTransform:'none', letterSpacing:'0' }}>{c.country} · {c.currency || 'USD'}</span>}
-                          {pricingTag && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background:pricingTag.bg, border:`1px solid ${pricingTag.border}`, color:pricingTag.color, textTransform:'none', letterSpacing:'0' }}>{pricingTag.label}</span>}
                         </h3>
                         <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#888', textDecoration: 'none' }}>{c.website}</a>
                       </div>
