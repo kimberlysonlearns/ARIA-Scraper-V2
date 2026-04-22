@@ -709,7 +709,7 @@ export default function Home() {
   useEffect(() => {
     try {
       const c = localStorage.getItem('aria_competitors'); if (c) setCompetitors(JSON.parse(c));
-      const r = localStorage.getItem('aria_cad_usd'); if (r) setCadUsdRate(parseFloat(r));
+      const rate = localStorage.getItem('aria_cad_usd'); if (rate) setCadUsdRate(parseFloat(rate));
       const n = localStorage.getItem('aria_comp_notes'); if (n) setCompNotes(JSON.parse(n));
       const sh = localStorage.getItem('aria_scan_history'); if (sh) setScanHistory(JSON.parse(sh));
       const r = localStorage.getItem('aria_results'); if (r) setScrapeResults(JSON.parse(r));
