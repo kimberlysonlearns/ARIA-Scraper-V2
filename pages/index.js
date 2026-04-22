@@ -1991,14 +1991,13 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 </div>
                 {/* Scan All button */}
                 {(() => {
-                  const allDone = competitors.every(c => communityScans[c.id]?.status === 'done');
                   const anyLoading = competitors.some(c => communityScans[c.id]?.status === 'loading');
                   const scanAllActive = communityScans._scanAllActive;
-                  const scanAllProgress = communityScans._scanAllProgress || { current: 0, total: competitors.length };
+                  const scanAllProgress = communityScans._scanAllProgress || { current: 0, total: competitors.length, countdown: 0, phase: 'idle' };
 
                   const doScanAll = async () => {
                     if (anyLoading || scanAllActive) return;
-                    setCommunityScans(prev => ({ ...prev, _scanAllActive: true, _scanAllProgress: { current: 0, total: competitors.length } }));
+                    setCommunityScans(prev => ({ ...prev, _scanAllActive: true, _scanAllProgress: { current: 0, total: competitors.length, countdown: 0, phase: 'scanning' } }));
                     const tpMap = {
                       'GROWTH GUYS': null, 'PURITY PEPTIDES': null,
                       'CORE PEPTIDES': { stars:4.8, count:120 }, 'BIOTECH PEPTIDES': { stars:5.0, count:334 },
@@ -2006,7 +2005,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     };
                     for (let i = 0; i < competitors.length; i++) {
                       const c = competitors[i];
-                      setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading', expandedSection: prev[c.id]?.expandedSection }, _scanAllProgress: { current: i, total: competitors.length } }));
+                      setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading', expandedSection: prev[c.id]?.expandedSection }, _scanAllProgress: { current: i, total: competitors.length, countdown: 0, phase: 'scanning' } }));
                       const tp = Object.entries(tpMap).find(([k]) => c.name.includes(k.split(' ')[0]))?.[1] || null;
                       try {
                         const response = await fetch('/api/community-scan', {
@@ -2020,32 +2019,62 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
                       }
                       if (i < competitors.length - 1) {
-                        await new Promise(r => setTimeout(r, 25000));
+                        let secs = 30;
+                        setCommunityScans(prev => ({ ...prev, _scanAllProgress: { current: i + 1, total: competitors.length, countdown: secs, phase: 'waiting' } }));
+                        await new Promise(resolve => {
+                          const tick = setInterval(() => {
+                            secs--;
+                            setCommunityScans(prev => ({ ...prev, _scanAllProgress: { ...prev._scanAllProgress, countdown: secs } }));
+                            if (secs <= 0) { clearInterval(tick); resolve(); }
+                          }, 1000);
+                        });
                       }
                     }
-                    setCommunityScans(prev => ({ ...prev, _scanAllActive: false, _scanAllProgress: { current: competitors.length, total: competitors.length } }));
+                    setCommunityScans(prev => ({ ...prev, _scanAllActive: false, _scanAllProgress: { current: competitors.length, total: competitors.length, countdown: 0, phase: 'done' } }));
                   };
 
+                  const pct = scanAllProgress.total > 0 ? Math.round((scanAllProgress.current / scanAllProgress.total) * 100) : 0;
+
                   return (
-                    <div style={{ display:'flex', gap:'10px', alignItems:'center', marginBottom:'16px', flexWrap:'wrap' }}>
-                      <button onClick={doScanAll} disabled={anyLoading || scanAllActive}
-                        style={{ padding:'10px 22px', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor: anyLoading||scanAllActive ? 'default':'pointer', fontFamily:FF, letterSpacing:'0.5px', textTransform:'uppercase',
-                          border: anyLoading||scanAllActive ? '1px solid #b0d4ff' : '1px solid #b0d4ff',
-                          background: anyLoading||scanAllActive ? 'transparent' : '#0a1428',
-                          color: anyLoading||scanAllActive ? '#b0d4ff' : '#b0d4ff',
-                          opacity: anyLoading||scanAllActive ? 0.7 : 1 }}>
-                        {scanAllActive ? `⟳ SCANNING ${scanAllProgress.current + 1} OF ${scanAllProgress.total} — 25s BETWEEN EACH` : '⟳ SCAN ALL (AUTO-DELAY)'}
-                      </button>
-                      {scanAllActive && (
-                        <div style={{ flex:1, minWidth:'200px' }}>
-                          <div style={{ height:'4px', background:'#2a2a2a', borderRadius:'2px', overflow:'hidden' }}>
-                            <div style={{ height:'100%', background:'#b0d4ff', borderRadius:'2px', width:`${(scanAllProgress.current / scanAllProgress.total) * 100}%`, transition:'width 0.5s' }} />
+                    <div style={{ marginBottom:'16px' }}>
+                      <div style={{ display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap', marginBottom: scanAllActive ? '12px' : '0' }}>
+                        <button onClick={doScanAll} disabled={anyLoading || scanAllActive}
+                          style={{ padding:'10px 22px', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor: anyLoading||scanAllActive ? 'default':'pointer', fontFamily:FF, letterSpacing:'0.5px', textTransform:'uppercase',
+                            border:'1px solid #b0d4ff', background: scanAllActive ? 'transparent' : '#0a1428',
+                            color:'#b0d4ff', opacity: scanAllActive ? 0.6 : 1 }}>
+                          {scanAllActive ? '⟳ SCANNING ALL...' : '⟳ SCAN ALL (AUTO-DELAY)'}
+                        </button>
+                        {scanAllActive && scanAllProgress.phase === 'waiting' && (
+                          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                            <div style={{ textAlign:'center', background:'#1a1a0a', border:'1px solid #cc9040', borderRadius:'8px', padding:'6px 16px', minWidth:'80px' }}>
+                              <div style={{ fontSize:'24px', fontWeight:'700', color:'#ffe0a0', lineHeight:1, fontFamily:FF }}>{scanAllProgress.countdown}</div>
+                              <div style={{ fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'1px', fontFamily:FF }}>next scan</div>
+                            </div>
+                            <span style={{ fontSize:'12px', color:'#666', fontFamily:FF }}>
+                              Waiting before scanning {competitors[scanAllProgress.current]?.name}...
+                            </span>
                           </div>
-                          <div style={{ display:'flex', gap:'6px', marginTop:'6px', flexWrap:'wrap' }}>
+                        )}
+                        {scanAllActive && scanAllProgress.phase === 'scanning' && (
+                          <span style={{ fontSize:'12px', color:'#b0d4ff', fontFamily:FF }}>
+                            Scanning {competitors[scanAllProgress.current]?.name} ({scanAllProgress.current + 1} of {scanAllProgress.total})...
+                          </span>
+                        )}
+                        {!scanAllActive && scanAllProgress.phase === 'done' && (
+                          <span style={{ fontSize:'12px', color:'#b0ffd8', fontFamily:FF }}>✓ All {scanAllProgress.total} competitors scanned</span>
+                        )}
+                      </div>
+                      {scanAllActive && (
+                        <div>
+                          <div style={{ height:'4px', background:'#2a2a2a', borderRadius:'2px', overflow:'hidden', marginBottom:'8px' }}>
+                            <div style={{ height:'100%', background: scanAllProgress.phase==='waiting' ? '#ffe0a0' : '#b0d4ff', borderRadius:'2px', width:`${pct}%`, transition:'width 0.3s' }} />
+                          </div>
+                          <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
                             {competitors.map((c, i) => {
                               const st = communityScans[c.id]?.status;
                               const color = st==='done' ? { bg:'#0a1e14', border:'#40c080', text:'#b0ffd8' } : st==='loading' ? { bg:'#0a1428', border:'#b0d4ff', text:'#b0d4ff' } : st==='error' ? { bg:'#280a1e', border:'#cc4080', text:'#ffb0e0' } : { bg:'#1a1a1a', border:'#2a2a2a', text:'#555' };
-                              return <span key={i} style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:color.bg, border:`1px solid ${color.border}`, color:color.text, fontFamily:FF }}>{c.name.split(' ')[0]}</span>;
+                              const label = st==='done' ? '✓' : st==='loading' ? '⟳' : st==='error' ? '✗' : '○';
+                              return <span key={i} style={{ fontSize:'10px', padding:'3px 10px', borderRadius:'99px', background:color.bg, border:`1px solid ${color.border}`, color:color.text, fontFamily:FF }}>{label} {c.name.split(' ')[0]}</span>;
                             })}
                           </div>
                         </div>
