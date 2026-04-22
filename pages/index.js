@@ -1183,7 +1183,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                       <div>
                         <h3 style={{ ...H3, margin: 0, display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap' }}>
                           {c.name}
-                          {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background: c.country==='CA' ? '#281e0a' : '#0a1428', border: `1px solid ${c.country==='CA' ? '#ffe0a0' : '#b0d4ff'}`, color: c.country==='CA' ? '#ffe0a0' : '#b0d4ff', textTransform:'none', letterSpacing:'0' }}>{c.country} · {c.currency || 'USD'}</span>}
+                          {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background: c.country==='CA' ? '#281e0a' : '#0a1428', border: `1px solid ${c.country==='CA' ? '#ffe0a0' : '#b0d4ff'}`, color: c.country==='CA' ? '#ffe0a0' : '#b0d4ff', textTransform:'none', letterSpacing:'0' }}>{c.country}</span>}
                         </h3>
                         <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px', color: '#888', textDecoration: 'none' }}>{c.website}</a>
                       </div>
@@ -1508,14 +1508,14 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                               return (
                                 <div key={i} style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>
                                   {country && (
-                                    <span style={{ display:'block', marginBottom:'4px', fontSize:'9px', padding:'1px 5px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
+                                    <span style={{ display:'inline-block', marginBottom:'3px', fontSize:'9px', padding:'1px 5px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
                                       background: country==='CA' ? '#281e0a' : '#0a1428',
                                       border: `1px solid ${country==='CA' ? '#ffe0a0' : '#b0d4ff'}`,
                                       color: country==='CA' ? '#ffe0a0' : '#b0d4ff' }}>
                                       {country}
                                     </span>
                                   )}
-                                  {h}
+                                  <div>{h}</div>
                                 </div>
                               );
                             })}
@@ -1683,7 +1683,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
               const MarketBadge = ({ country }) => {
                 const isCA = country === 'CA';
                 return (
-                  <span style={{ display:'inline-block', marginTop:'4px', fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
+                  <span style={{ display:'inline-block', marginBottom:'3px', fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
                     background: isCA ? '#281e0a' : '#0a1428',
                     border: `1px solid ${isCA ? '#ffe0a0' : '#b0d4ff'}`,
                     color: isCA ? '#ffe0a0' : '#b0d4ff' }}>
@@ -1700,9 +1700,9 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                       <tr>
                         <th style={{ ...ROW_LABEL, borderTop:'none', background:'#1a1a1a' }}></th>
                         {filteredByMarket.map(c => (
-                          <th key={c.id} style={{ ...COL_HEAD, borderTop:'none' }}>
-                            <MarketBadge country={c.country || 'US'} />
-                            <div style={{ marginTop:'4px' }}>{c.name}</div>
+                          <th key={c.id} style={{ ...COL_HEAD, borderTop:'none', textAlign:'center' }}>
+                            <div><MarketBadge country={c.country || 'US'} /></div>
+                            <div>{c.name}</div>
                           </th>
                         ))}
                       </tr>
