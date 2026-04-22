@@ -1337,9 +1337,9 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     <select value={form.country} onChange={e => setForm({ ...form, country: e.target.value })}
                       style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '14px', marginBottom: '14px' }}>
                       <option value="">— Select market —</option>
-                      <option value="CA">🇨🇦 Canada (CAD)</option>
-                      <option value="US">🇺🇸 United States (USD)</option>
-                      <option value="OTHER">🌐 Other (USD)</option>
+                      <option value="CA">Canada (CAD)</option>
+                      <option value="US">United States (USD)</option>
+                      <option value="OTHER">Other (USD)</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -1365,9 +1365,9 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '600', marginBottom: '6px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Market / Country</label>
                     <select value={editingCompetitor.country || 'US'} onChange={e => setEditingCompetitor(prev => ({ ...prev, country: e.target.value }))}
                       style={{ width: '100%', padding: '10px', border: '1px solid #333', borderRadius: '6px', background: '#111', color: '#fff', fontFamily: 'inherit', fontSize: '14px', marginBottom: '14px' }}>
-                      <option value="US">🇺🇸 United States (USD)</option>
-                      <option value="CA">🇨🇦 Canada (CAD)</option>
-                      <option value="OTHER">🌐 Other (USD)</option>
+                      <option value="US">United States (USD)</option>
+                      <option value="CA">Canada (CAD)</option>
+                      <option value="OTHER">Other (USD)</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -1401,7 +1401,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
             {/* Market filter */}
             <div style={{ display:'flex', gap:'8px', marginBottom:'20px', flexWrap:'wrap', alignItems:'center' }}>
-              {[['ALL','All Markets'],['CA','🇨🇦 Canada (CAD)'],['US','🇺🇸 United States (USD)']].map(([v,label]) => (
+              {[['ALL','All Markets'],['CA','CA — Canada (CAD)'],['US','US — United States (USD)']].map(([v,label]) => (
                 <span key={v} onClick={() => setAnalysisMarket(v)} style={{ fontSize:'12px', padding:'5px 14px', borderRadius:'99px', cursor:'pointer', userSelect:'none', fontFamily: FF,
                   background: analysisMarket===v ? (v==='CA' ? '#281e0a' : v==='US' ? '#0a1428' : '#f5e6e0') : 'transparent',
                   border: `1px solid ${analysisMarket===v ? (v==='CA' ? '#ffe0a0' : v==='US' ? '#b0d4ff' : '#f5e6e0') : '#333'}`,
@@ -1687,7 +1687,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     background: isCA ? '#281e0a' : '#0a1428',
                     border: `1px solid ${isCA ? '#ffe0a0' : '#b0d4ff'}`,
                     color: isCA ? '#ffe0a0' : '#b0d4ff' }}>
-                    {isCA ? '🇨🇦 CA' : '🇺🇸 US'}
+                    {isCA ? 'CA' : 'US'}
                   </span>
                 );
               };
@@ -1723,7 +1723,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                 <>
                   {/* Market filter */}
                   <div style={{ display:'flex', gap:'8px', marginBottom:'20px', alignItems:'center', flexWrap:'wrap' }}>
-                    {[['ALL','All Markets'],['CA','🇨🇦 Canada only'],['US','🇺🇸 USA only']].map(([v,label]) => (
+                    {[['ALL','All Markets'],['CA','CA — Canada'],['US','US — United States']].map(([v,label]) => (
                       <span key={v} onClick={() => setIntelMarket(v)}
                         style={{ fontSize:'12px', padding:'5px 14px', borderRadius:'99px', cursor:'pointer', userSelect:'none', fontFamily: F,
                           background: intelMarket===v ? (v==='CA' ? '#281e0a' : v==='US' ? '#0a1428' : '#f5e6e0') : 'transparent',
@@ -1794,6 +1794,26 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   e.g. $100 CAD = ${(100 * cadUsdRate).toFixed(2)} USD at current rate
                 </div>
                 <button style={{ ...BTN, marginTop:'18px', fontSize:'11px', padding:'6px 12px' }} onClick={() => setCadUsdRate(0.72)}>RESET TO 0.72</button>
+              </div>
+            </div>
+
+            <div className="aria-card" style={CARD}>
+              <h3 style={H3}>FIX COMPETITOR COUNTRIES</h3>
+              <p style={P}>If competitors were added before the country dropdown existed, set their market here without losing scan data.</p>
+              <div style={{ display:'grid', gap:'8px', marginTop:'12px' }}>
+                {competitors.map(c => (
+                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', background:'#111', borderRadius:'6px', border:'1px solid #222' }}>
+                    <span style={{ flex:1, fontSize:'13px', color:'#ddd', fontFamily:FF }}>{c.name}</span>
+                    <select value={c.country || 'US'} onChange={e => setCompetitors(prev => prev.map(x => x.id===c.id ? {...x, country:e.target.value, currency:e.target.value==='CA'?'CAD':'USD'} : x))}
+                      style={{ padding:'6px 10px', background:'#181818', border:'1px solid #333', borderRadius:'6px', color:'#fff', fontSize:'12px', fontFamily:FF }}>
+                      <option value="CA">CA — Canada</option>
+                      <option value="US">US — United States</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                    <span style={{ fontSize:'11px', color:'#555', fontFamily:FF }}>{c.currency || 'USD'}</span>
+                  </div>
+                ))}
+                {competitors.length === 0 && <p style={{ ...P, color:'#555' }}>No competitors added yet.</p>}
               </div>
             </div>
 
