@@ -1962,18 +1962,19 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
             ) : (
               <>
                 <div style={{ background:'#1a1a1a', border:'1px solid #252525', borderRadius:'8px', padding:'12px 16px', marginBottom:'20px', display:'flex', gap:'10px', alignItems:'flex-start' }}>
-                  <span style={{ color:'#b0d4ff', fontSize:'16px' }}>ℹ</span>
-                  <p style={{ fontSize:'12px', color:'#666', margin:0, lineHeight:'1.7', fontFamily:FF }}>
-                    Each scan searches Reddit, SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and the broader web for customer mentions. Takes 10–15 seconds. Results are AI-generated from live web search data.
+                  <span style={{ color:'#b0d4ff', fontSize:'14px' }}>ℹ</span>
+                  <p style={{ fontSize:'12px', color:'#555', margin:0, lineHeight:'1.7', fontFamily:FF }}>
+                    Scan one at a time — each scan takes 10–15 seconds and searches Reddit, SteroidSourceTalk, MesoRX, Eroids, Trustpilot and the broader web. Wait 30 seconds between scans to avoid rate limits.
                   </p>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:'16px' }}>
+                <div style={{ display:'grid', gap:'12px' }}>
                   {competitors.map(c => {
                     const scan = communityScans[c.id] || { status:'idle' };
                     const isLoading = scan.status === 'loading';
+                    const r = scan.result;
 
                     const doScan = async () => {
-                      setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading' } }));
+                      setCommunityScans(prev => ({ ...prev, [c.id]: { status:'loading', expandedSection: prev[c.id]?.expandedSection } }));
                       const tpMap = {
                         'GROWTH GUYS': null,
                         'PURITY PEPTIDES': null,
@@ -1991,96 +1992,155 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         });
                         const data = await response.json();
                         if (data.error) throw new Error(data.error);
-                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'done', result: data.result, scannedAt: new Date().toLocaleTimeString() } }));
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'done', result: data.result, scannedAt: new Date().toLocaleTimeString(), expandedSection: prev[c.id]?.expandedSection } }));
                       } catch(e) {
                         setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
                       }
                     };
 
-                    return (
-                      <div key={c.id} className="aria-card" style={{ ...CARD, borderColor: scan.status==='done' ? '#2a3a2a' : '#2a2a2a' }}>
-                        {/* Card header */}
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
-                          <div>
-                            <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'3px' }}>
-                              <span style={{ fontSize:'12px', fontWeight:'600', color:'#f5e6e0', letterSpacing:'1px', fontFamily:FF }}>{c.name}</span>
-                              {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background:c.country==='CA'?'#281e0a':'#0a1428', border:`1px solid ${c.country==='CA'?'#ffe0a0':'#b0d4ff'}`, color:c.country==='CA'?'#ffe0a0':'#b0d4ff' }}>{c.country}</span>}
-                            </div>
-                            <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize:'11px', color:'#555', textDecoration:'none', fontFamily:FF }}>{c.website}</a>
-                          </div>
-                          {scan.status==='done' && (
-                            <div style={{ textAlign:'right' }}>
-                              <div style={{ fontSize:'16px', fontWeight:'600', color: scan.result.sentimentScore>=70?'#b0ffd8':scan.result.sentimentScore>=40?'#ffe0a0':'#ffb0e0', fontFamily:FF }}>{scan.result.sentimentScore}</div>
-                              <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FF }}>Score</div>
-                            </div>
-                          )}
-                        </div>
+                    const toggleSection = (section) => {
+                      setCommunityScans(prev => ({ ...prev, [c.id]: { ...prev[c.id], expandedSection: prev[c.id]?.expandedSection === section ? null : section } }));
+                    };
 
-                        {/* Scan button */}
-                        {scan.status !== 'done' && (
-                          <button onClick={doScan} disabled={isLoading}
-                            style={{ width:'100%', padding:'10px', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor:isLoading?'default':'pointer', fontFamily:FF, letterSpacing:'0.5px', textTransform:'uppercase', transition:'all 0.15s',
-                              border: isLoading?'1px solid #ffe0a0':'1px solid #f5e6e0',
-                              background: isLoading?'transparent':'#f5e6e0',
-                              color: isLoading?'#ffe0a0':'#181818',
-                              opacity: isLoading?0.8:1 }}>
-                            {isLoading ? '⟳ SCANNING THE WEB...' : 'SCAN COMMUNITY INTEL'}
-                          </button>
-                        )}
+                    const expandedSection = scan.expandedSection;
+
+                    const SectionBtn = ({ id, label, color, count }) => (
+                      <button onClick={() => toggleSection(id)}
+                        style={{ padding:'6px 14px', borderRadius:'5px', fontSize:'11px', cursor:'pointer', fontFamily:FF, fontWeight:'600', letterSpacing:'0.5px', transition:'all 0.15s',
+                          background: expandedSection===id ? color.bg : 'transparent',
+                          border: `1px solid ${expandedSection===id ? color.border : '#2a2a2a'}`,
+                          color: expandedSection===id ? color.text : '#666' }}>
+                        {label} {count ? `(${count})` : ''} {expandedSection===id ? '▲' : '▼'}
+                      </button>
+                    );
+
+                    return (
+                      <div key={c.id} className="aria-card" style={{ ...CARD,
+                        borderColor: scan.status==='done' ? (r?.watchFlag ? '#3a2a0a' : '#2a3a2a') : '#2a2a2a',
+                        borderLeft: scan.status==='done' ? `3px solid ${r?.watchFlag ? '#cc9040' : '#40c080'}` : '3px solid #2a2a2a' }}>
+
+                        {/* ── HEADER ROW ── */}
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: scan.status==='done' ? '14px' : '0' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                            {scan.status==='done' && (
+                              <div style={{ textAlign:'center', minWidth:'44px' }}>
+                                <div style={{ fontSize:'22px', fontWeight:'600', lineHeight:1, fontFamily:FF, color: r?.sentimentScore>=70?'#b0ffd8':r?.sentimentScore>=40?'#ffe0a0':'#ffb0e0' }}>{r?.sentimentScore}</div>
+                                <div style={{ fontSize:'8px', color:'#555', textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FF }}>Score</div>
+                              </div>
+                            )}
+                            <div>
+                              <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'2px' }}>
+                                <span style={{ fontSize:'13px', fontWeight:'600', color:'#f5e6e0', letterSpacing:'1px', fontFamily:FF }}>{c.name}</span>
+                                {c.country && <span style={{ fontSize:'9px', padding:'1px 6px', borderRadius:'99px', fontWeight:'600', background:c.country==='CA'?'#281e0a':'#0a1428', border:`1px solid ${c.country==='CA'?'#ffe0a0':'#b0d4ff'}`, color:c.country==='CA'?'#ffe0a0':'#b0d4ff' }}>{c.country}</span>}
+                                {scan.status==='done' && r?.watchFlag && <span style={{ fontSize:'9px', padding:'1px 8px', borderRadius:'99px', background:'#281e0a', border:'1px solid #cc9040', color:'#ffe0a0', fontFamily:FF }}>⚠ WATCH</span>}
+                              </div>
+                              <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ fontSize:'11px', color:'#444', textDecoration:'none', fontFamily:FF }}>{c.website}</a>
+                            </div>
+                          </div>
+                          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                            {scan.status==='done' && <span style={{ fontSize:'10px', color:'#444', fontFamily:FF }}>Scanned {scan.scannedAt}</span>}
+                            <button onClick={doScan} disabled={isLoading}
+                              style={{ padding:'7px 16px', borderRadius:'6px', fontSize:'11px', fontWeight:'600', cursor:isLoading?'default':'pointer', fontFamily:FF, letterSpacing:'0.5px', textTransform:'uppercase', transition:'all 0.15s',
+                                border: isLoading?'1px solid #ffe0a0': scan.status==='done' ? '1px solid #333' : '1px solid #f5e6e0',
+                                background: isLoading?'transparent': scan.status==='done' ? 'transparent' : '#f5e6e0',
+                                color: isLoading?'#ffe0a0': scan.status==='done' ? '#777' : '#181818',
+                                opacity: isLoading?0.8:1 }}>
+                              {isLoading ? '⟳ SCANNING...' : scan.status==='done' ? '↺ RESCAN' : 'SCAN'}
+                            </button>
+                          </div>
+                        </div>
 
                         {/* Error */}
                         {scan.status==='error' && (
-                          <div>
-                            <p style={{ fontSize:'12px', color:'#ffb0e0', marginBottom:'8px', fontFamily:FF }}>Scan failed — {scan.error}</p>
-                            <button onClick={doScan} style={{ ...BTN, fontSize:'11px', padding:'5px 12px' }}>TRY AGAIN</button>
-                          </div>
+                          <p style={{ fontSize:'12px', color:'#ffb0e0', marginTop:'8px', fontFamily:FF }}>Scan failed — {scan.error}</p>
                         )}
 
-                        {/* Results */}
-                        {scan.status==='done' && scan.result && (
+                        {/* ── RESULTS ── */}
+                        {scan.status==='done' && r && (
                           <div>
-                            {/* Summary */}
-                            <p style={{ fontSize:'13px', color:'#ccc', lineHeight:'1.8', marginBottom:'12px', fontFamily:FF }}>{scan.result.summary}</p>
-
-                            {/* Sentiment pills */}
-                            <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'12px' }}>
-                              <span style={{ fontSize:'11px', padding:'4px 10px', borderRadius:'5px', background:'#0a1e14', border:'1px solid #b0ffd8', color:'#b0ffd8', fontFamily:FF }}>👍 {scan.result.positive}</span>
-                              <span style={{ fontSize:'11px', padding:'4px 10px', borderRadius:'5px', background:'#280a1e', border:'1px solid #ffb0e0', color:'#ffb0e0', fontFamily:FF }}>👎 {scan.result.negative}</span>
-                              {scan.result.neutral && <span style={{ fontSize:'11px', padding:'4px 10px', borderRadius:'5px', background:'#1a1a1a', border:'1px solid #444', color:'#888', fontFamily:FF }}>≈ {scan.result.neutral}</span>}
+                            {/* Summary + verdict inline */}
+                            <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:'16px', alignItems:'start', marginBottom:'14px' }}>
+                              <p style={{ fontSize:'13px', color:'#bbb', lineHeight:'1.8', margin:0, fontFamily:FF }}>{r.summary}</p>
+                              <div style={{ padding:'10px 14px', borderRadius:'6px', fontSize:'12px', lineHeight:'1.6', fontFamily:FF, minWidth:'220px', maxWidth:'300px',
+                                background: r.watchFlag?'#1a1a0a':'#0a1a0a',
+                                border: `1px solid ${r.watchFlag?'#cc9040':'#40c080'}`,
+                                color: r.watchFlag?'#ffe0a0':'#b0ffd8' }}>
+                                {r.watchFlag ? '⚠ ' : '✓ '}{r.verdict}
+                              </div>
                             </div>
 
                             {/* Latest activity */}
-                            {scan.result.latestActivity && (
-                              <div style={{ fontSize:'11px', color:'#666', marginBottom:'10px', fontFamily:FF, padding:'6px 10px', background:'#141414', borderRadius:'5px', borderLeft:'2px solid #333' }}>
-                                Latest: {scan.result.latestActivity}
+                            {r.latestActivity && (
+                              <div style={{ fontSize:'11px', color:'#555', marginBottom:'12px', fontFamily:FF, padding:'6px 10px', background:'#141414', borderRadius:'5px', borderLeft:'2px solid #333' }}>
+                                🕐 Latest: {r.latestActivity}
                               </div>
                             )}
 
-                            {/* Sources */}
-                            {scan.result.sources && scan.result.sources.length > 0 && (
-                              <div style={{ marginBottom:'10px' }}>
-                                <div style={{ fontSize:'9px', color:'#555', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'5px', fontFamily:FF }}>Sources searched</div>
-                                <div style={{ display:'flex', flexWrap:'wrap', gap:'4px' }}>
-                                  {scan.result.sources.map((s,i) => (
-                                    <span key={i} style={{ fontSize:'10px', padding:'2px 8px', borderRadius:'99px', background:'#1a1a1a', border:'1px solid #2a2a2a', color:'#666', fontFamily:FF }}>{s}</span>
+                            {/* Section toggles */}
+                            <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'12px' }}>
+                              <SectionBtn id="positive" label="👍 Praise"
+                                color={{ bg:'#0a1e14', border:'#40c080', text:'#b0ffd8' }}
+                                count={r.positiveReviews?.length} />
+                              <SectionBtn id="negative" label="👎 Complaints"
+                                color={{ bg:'#280a1e', border:'#cc4080', text:'#ffb0e0' }}
+                                count={r.negativeReviews?.length} />
+                              <SectionBtn id="neutral" label="≈ Observations"
+                                color={{ bg:'#1a1a1a', border:'#555', text:'#aaa' }}
+                                count={r.neutralObservations?.length} />
+                              {r.sources && r.sources.length > 0 && (
+                                <SectionBtn id="sources" label="Sources"
+                                  color={{ bg:'#0a1428', border:'#4080cc', text:'#b0d4ff' }}
+                                  count={r.sources.length} />
+                              )}
+                            </div>
+
+                            {/* Expanded sections */}
+                            {expandedSection === 'positive' && r.positiveReviews && (
+                              <div style={{ background:'#0a140e', border:'1px solid #1a3a24', borderRadius:'6px', padding:'12px 14px', marginBottom:'10px' }}>
+                                <div style={{ fontSize:'9px', color:'#40c080', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px', fontFamily:FF }}>Customer Praise</div>
+                                {r.positiveReviews.map((rev, i) => (
+                                  <div key={i} style={{ marginBottom:'10px', paddingBottom:'10px', borderBottom: i < r.positiveReviews.length-1 ? '1px solid #1a2a1a' : 'none' }}>
+                                    <p style={{ fontSize:'13px', color:'#b0ffd8', lineHeight:'1.7', margin:'0 0 4px', fontFamily:FF }}>"{rev.quote}"</p>
+                                    <span style={{ fontSize:'10px', color:'#555', fontFamily:FF }}>{rev.source} · {rev.date}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {expandedSection === 'negative' && r.negativeReviews && (
+                              <div style={{ background:'#140a0e', border:'1px solid #3a1a24', borderRadius:'6px', padding:'12px 14px', marginBottom:'10px' }}>
+                                <div style={{ fontSize:'9px', color:'#cc4080', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px', fontFamily:FF }}>Customer Complaints</div>
+                                {r.negativeReviews.map((rev, i) => (
+                                  <div key={i} style={{ marginBottom:'10px', paddingBottom:'10px', borderBottom: i < r.negativeReviews.length-1 ? '1px solid #2a1a1a' : 'none' }}>
+                                    <p style={{ fontSize:'13px', color:'#ffb0e0', lineHeight:'1.7', margin:'0 0 4px', fontFamily:FF }}>"{rev.quote}"</p>
+                                    <span style={{ fontSize:'10px', color:'#555', fontFamily:FF }}>{rev.source} · {rev.date}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {expandedSection === 'neutral' && r.neutralObservations && (
+                              <div style={{ background:'#141414', border:'1px solid #2a2a2a', borderRadius:'6px', padding:'12px 14px', marginBottom:'10px' }}>
+                                <div style={{ fontSize:'9px', color:'#888', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'10px', fontFamily:FF }}>Observations</div>
+                                {r.neutralObservations.map((rev, i) => (
+                                  <div key={i} style={{ marginBottom:'10px', paddingBottom:'10px', borderBottom: i < r.neutralObservations.length-1 ? '1px solid #222' : 'none' }}>
+                                    <p style={{ fontSize:'13px', color:'#aaa', lineHeight:'1.7', margin:'0 0 4px', fontFamily:FF }}>"{rev.quote}"</p>
+                                    <span style={{ fontSize:'10px', color:'#555', fontFamily:FF }}>{rev.source} · {rev.date}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {expandedSection === 'sources' && r.sources && (
+                              <div style={{ background:'#0a0e14', border:'1px solid #1a2a3a', borderRadius:'6px', padding:'12px 14px', marginBottom:'10px' }}>
+                                <div style={{ fontSize:'9px', color:'#4080cc', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'8px', fontFamily:FF }}>Sources Searched</div>
+                                <div style={{ display:'flex', flexWrap:'wrap', gap:'6px' }}>
+                                  {r.sources.map((s,i) => (
+                                    <span key={i} style={{ fontSize:'11px', padding:'3px 10px', borderRadius:'99px', background:'#0a1428', border:'1px solid #1a3a5a', color:'#b0d4ff', fontFamily:FF }}>{s}</span>
                                   ))}
                                 </div>
                               </div>
                             )}
-
-                            {/* Verdict */}
-                            <div style={{ padding:'10px 12px', borderRadius:'6px', fontSize:'12px', lineHeight:'1.6', fontFamily:FF, marginBottom:'10px',
-                              background: scan.result.watchFlag?'#1a1a0a':'#0a1a0a',
-                              border: `1px solid ${scan.result.watchFlag?'#cc9040':'#40c080'}`,
-                              color: scan.result.watchFlag?'#ffe0a0':'#b0ffd8' }}>
-                              {scan.result.watchFlag ? '⚠ ' : '✓ '}{scan.result.verdict}
-                            </div>
-
-                            {/* Footer */}
-                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                              <span style={{ fontSize:'10px', color:'#444', fontFamily:FF }}>Scanned {scan.scannedAt}</span>
-                              <button onClick={doScan} style={{ fontSize:'10px', color:'#555', background:'none', border:'none', cursor:'pointer', fontFamily:FF, padding:0 }}>↺ rescan</button>
-                            </div>
                           </div>
                         )}
                       </div>
