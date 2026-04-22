@@ -1253,12 +1253,17 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                               ['Scans recorded', history.length ? `${history.length} / last 5` : 'None yet'],
                               ['Last scan', history[0]?.scrapedAt ? new Date(history[0].scrapedAt).toLocaleDateString() : '—'],
                               ['Price changes', competitorChanges.length || '0'],
-                            ].map(([k,v]) => (
-                              <div key={k} style={{ marginBottom:'8px' }}>
-                                <div style={{ fontSize:'10px', color:'#555', fontFamily:FF }}>{k}</div>
-                                <div style={{ fontSize:'12px', color: k==='Reliability' && reliability !== null ? (reliability >= 80 ? '#b0ffd8' : reliability >= 50 ? '#ffe0a0' : '#ffb0e0') : '#ccc', fontFamily:FF }}>{v}</div>
-                              </div>
-                            ))}
+                            ].map(([k,v]) => {
+                              const reliColor = k==='Reliability' && reliability !== null
+                                ? (reliability >= 80 ? '#b0ffd8' : reliability >= 50 ? '#ffe0a0' : '#ffb0e0')
+                                : '#ccc';
+                              return (
+                                <div key={k} style={{ marginBottom:'8px' }}>
+                                  <div style={{ fontSize:'10px', color:'#555', fontFamily:FF }}>{k}</div>
+                                  <div style={{ fontSize:'12px', color: reliColor, fontFamily:FF }}>{v}</div>
+                                </div>
+                              );
+                            })}
                           </div>
                           {/* Col 3 — scan history */}
                           <div>
@@ -1530,7 +1535,6 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                               );
                             })}
                           </div>
-                          </div>
                           <div style={{ display: 'grid', gap: '3px' }}>
                             {filtered.map((p, i) => {
                               const prices = Object.values(p.sites).map(s => s.value).filter(Boolean);
@@ -1683,7 +1687,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
 
                   <SectionTable title="Trust & Quality" rows={[
                     { label: 'Lab testing', render: (k) => k.labTesting ? <Pill text={k.labTesting} type="green" /> : <None /> },
-                    { label: 'Product count', render: (k, c) => { const sc = (scrapeResults[c.id]?.insights?.[0]?.items||[]).length; const d = sc > 0 ? sc : k.productCount; return <span style={{ fontSize: '22px', fontFamily: F, color: '#f5e6e0', fontWeight: '500' }}>{d || '—'}</span>; } },
+                    { label: 'Product count', render: (k, c) => <span style={{ fontSize: '22px', fontFamily: F, color: '#f5e6e0', fontWeight: '500' }}>{((scrapeResults[c.id]?.insights?.[0]?.items||[]).length || k.productCount) || '—'}</span> },
                     { label: 'Unique features', render: (k) => (k.uniqueFeatures||[]).length > 0 ? <div>{(k.uniqueFeatures||[]).map((f,i) => <Pill key={i} text={f} type="purple" />)}</div> : <None /> },
                   ]} />
 
