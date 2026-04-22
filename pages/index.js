@@ -923,8 +923,8 @@ export default function Home() {
     { id: 'analysis', label: 'ANALYSIS' },
     { id: 'pricing', label: 'PRICING' },
     { id: 'marketintel', label: 'MARKET INTEL' },
-    { id: 'peptideguide', label: 'PEPTIDE GUIDE' },
     { id: 'communityintel', label: 'COMMUNITY INTEL' },
+    { id: 'peptideguide', label: 'PEPTIDE GUIDE' },
     { id: 'settings', label: 'SETTINGS' },
   ];
 
@@ -2033,25 +2033,15 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         'ONYX BIOLABS': { stars:5.0, count:20 },
                       };
                       const tp = Object.entries(tpMap).find(([k]) => c.name.includes(k.split(' ')[0]))?.[1] || null;
-                      const tpContext = tp ? `They have ${tp.count} Trustpilot reviews averaging ${tp.stars}/5 stars.` : 'No Trustpilot profile found.';
-                      const prompt = `You are a competitive intelligence analyst. Search the web for customer reviews, forum posts, Reddit discussions, and any public mentions of "${c.name}" (a research peptide vendor${c.country==='CA' ? ' based in Canada' : ' based in the USA'}).\n\n${tpContext}\n\nSearch Reddit (r/Peptides, r/PeptidesGrowth, r/semaglutide, r/researchchemicals), SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and any other relevant forums or review sites.\n\nReturn ONLY a JSON object with no markdown or backticks:\n{"summary":"2-3 sentence overall reputation summary","positive":"main praise in 10 words max","negative":"main complaint in 10 words max","neutral":"notable neutral observation in 10 words or null","sources":["list","of","platforms","found"],"sentimentScore":0-100,"watchFlag":true or false,"verdict":"one sentence actionable insight for a competitor monitoring this vendor","latestActivity":"description of most recent mention found with approximate date"}`;
                       try {
-                        const response = await fetch('https://api.anthropic.com/v1/messages', {
-                          method:'POST',
-                          headers:{ 'Content-Type':'application/json' },
-                          body: JSON.stringify({
-                            model:'claude-sonnet-4-20250514',
-                            max_tokens:1000,
-                            tools:[{ type:'web_search_20250305', name:'web_search' }],
-                            messages:[{ role:'user', content:prompt }]
-                          })
+                        const response = await fetch('/api/community-scan', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ competitorName: c.name, country: c.country, trustpilot: tp }),
                         });
                         const data = await response.json();
-                        const textBlock = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-                        const jsonMatch = textBlock.match(/\{[\s\S]*\}/);
-                        if (!jsonMatch) throw new Error('No JSON in response');
-                        const result = JSON.parse(jsonMatch[0]);
-                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'done', result, scannedAt: new Date().toLocaleTimeString() } }));
+                        if (data.error) throw new Error(data.error);
+                        setCommunityScans(prev => ({ ...prev, [c.id]: { status:'done', result: data.result, scannedAt: new Date().toLocaleTimeString() } }));
                       } catch(e) {
                         setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
                       }
