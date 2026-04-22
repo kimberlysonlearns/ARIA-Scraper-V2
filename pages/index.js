@@ -1973,7 +1973,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                   <div style={{ display:'flex', gap:'10px', alignItems:'flex-start' }}>
                     <span style={{ color:'#b0d4ff', fontSize:'14px' }}>ℹ</span>
                     <p style={{ fontSize:'12px', color:'#555', margin:0, lineHeight:'1.7', fontFamily:FF }}>
-                      Scan one at a time — each scan searches Reddit, SteroidSourceTalk, MesoRX, Eroids, Trustpilot and the broader web. Wait 30 seconds between scans to avoid rate limits.
+                      Each scan analyses community knowledge from Reddit, SteroidSourceTalk, MesoRX, Eroids, Trustpilot and more. Scans complete in 3–5 seconds. Use Scan All to run all competitors automatically.
                     </p>
                   </div>
                   {scanCooldown > 0 && (
@@ -2019,7 +2019,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         setCommunityScans(prev => ({ ...prev, [c.id]: { status:'error', error: e.message } }));
                       }
                       if (i < competitors.length - 1) {
-                        let secs = 60;
+                        let secs = 15;
                         setCommunityScans(prev => ({ ...prev, _scanAllProgress: { current: i + 1, total: competitors.length, countdown: secs, phase: 'waiting' } }));
                         await new Promise(resolve => {
                           const tick = setInterval(() => {
@@ -2034,7 +2034,7 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                     const failed = competitors.filter(c => communityScans[c.id]?.status === 'error');
                     for (let i = 0; i < failed.length; i++) {
                       const c = failed[i];
-                      let secs = 60;
+                      let secs = 15;
                       setCommunityScans(prev => ({ ...prev, _scanAllProgress: { current: competitors.length, total: competitors.length, countdown: secs, phase: 'waiting' } }));
                       await new Promise(resolve => {
                         const tick = setInterval(() => {
