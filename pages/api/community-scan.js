@@ -16,12 +16,12 @@ ${tpContext}
 
 Search Reddit (r/Peptides, r/PeptidesGrowth, r/semaglutide, r/researchchemicals), SteroidSourceTalk, MesoRX, Eroids, Trustpilot, and any other relevant forums or review sites. Find as many actual customer quotes as possible, especially negative ones.
 
-You MUST return ONLY a valid JSON object. No markdown, no backticks, no text before or after. Start with { and end with }.
+CRITICAL: You MUST return ONLY a valid JSON object. No markdown, no backticks, no explanation, no text before or after. Your entire response must start with { and end with }. Do not wrap in code blocks.
 
 Use this exact structure:
-{"summary":"3-4 sentence overall reputation summary","sentimentScore":50,"watchFlag":false,"verdict":"one sentence actionable insight for a competitor","latestActivity":"most recent mention with approximate date","sources":["platform1","platform2"],"positiveReviews":[{"quote":"real customer quote","source":"platform","date":"approx date"},{"quote":"quote","source":"platform","date":"date"},{"quote":"quote","source":"platform","date":"date"}],"negativeReviews":[{"quote":"real complaint quote","source":"platform","date":"approx date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"}],"neutralObservations":[{"quote":"neutral observation","source":"platform","date":"date"},{"quote":"observation","source":"platform","date":"date"}],"mainIssues":["main recurring issue 1 in one sentence","main recurring issue 2","main recurring issue 3"],"suggestions":["what YOUR company should do to avoid this issue 1","suggestion 2","suggestion 3","suggestion 4"],"positive":"main praise in 10 words","negative":"main complaint in 10 words","neutral":"key observation in 10 words or null"}`;
+{"summary":"3-4 sentence overall reputation summary","sentimentScore":50,"watchFlag":false,"verdict":"one sentence actionable insight for a competitor","latestActivity":"most recent mention with approximate date","sources":["platform1","platform2"],"positiveReviews":[{"quote":"real customer quote","source":"platform","date":"approx date"},{"quote":"quote","source":"platform","date":"date"},{"quote":"quote","source":"platform","date":"date"}],"negativeReviews":[{"quote":"real complaint quote","source":"platform","date":"approx date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"},{"quote":"complaint","source":"platform","date":"date"}],"neutralObservations":[{"quote":"neutral observation","source":"platform","date":"date"},{"quote":"observation","source":"platform","date":"date"}],"mainIssues":["main recurring issue 1","main recurring issue 2","main recurring issue 3"],"suggestions":["what YOUR company should do differently 1","suggestion 2","suggestion 3","suggestion 4"],"positive":"main praise in 10 words","negative":"main complaint in 10 words","neutral":"key observation in 10 words or null"}`;
 
-  try {
+  const callAPI = async () => {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -31,21 +31,21 @@ Use this exact structure:
         'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-sonnet-4-5',
         max_tokens: 3000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }],
       }),
     });
-
     if (!response.ok) {
       const errText = await response.text();
-      return res.status(200).json({ error: `API error ${response.status}: ${errText.slice(0, 200)}` });
+      throw new Error(`API error ${response.status}: ${errText.slice(0, 200)}`);
     }
+    return response.json();
+  };
 
-    const data = await response.json();
+  const parseResult = (data) => {
     const textBlock = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-
     let result = null;
     try { result = JSON.parse(textBlock.trim()); } catch(e) {}
     if (!result) {
@@ -59,8 +59,27 @@ Use this exact structure:
       const stripped = textBlock.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       try { result = JSON.parse(stripped); } catch(e) {}
     }
-    if (!result) return res.status(200).json({ error: 'No structured data in response', raw: textBlock.slice(0, 400) });
+    return result;
+  };
 
+  try {
+    // First attempt
+    let data = await callAPI();
+    let result = parseResult(data);
+
+    // Retry once if parsing failed
+    if (!result) {
+      await new Promise(r => setTimeout(r, 3000));
+      data = await callAPI();
+      result = parseResult(data);
+    }
+
+    if (!result) {
+      const textBlock = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      return res.status(200).json({ error: 'No structured data in response', raw: textBlock.slice(0, 400) });
+    }
+
+    // Ensure required fields
     if (!result.positiveReviews) result.positiveReviews = [];
     if (!result.negativeReviews) result.negativeReviews = [];
     if (!result.neutralObservations) result.neutralObservations = [];
