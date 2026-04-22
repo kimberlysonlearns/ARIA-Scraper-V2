@@ -1507,15 +1507,15 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                               const country = i >= 2 ? (compCountry[h] || 'US') : null;
                               return (
                                 <div key={i} style={{ fontSize: '9px', color: '#777', textTransform: 'uppercase', letterSpacing: '1px', padding: '6px 8px', fontWeight: '600' }}>
-                                  {h}
                                   {country && (
-                                    <span style={{ marginLeft:'5px', fontSize:'9px', padding:'1px 5px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
+                                    <span style={{ display:'block', marginBottom:'4px', fontSize:'9px', padding:'1px 5px', borderRadius:'99px', fontWeight:'600', textTransform:'none', letterSpacing:'0',
                                       background: country==='CA' ? '#281e0a' : '#0a1428',
                                       border: `1px solid ${country==='CA' ? '#ffe0a0' : '#b0d4ff'}`,
                                       color: country==='CA' ? '#ffe0a0' : '#b0d4ff' }}>
                                       {country}
                                     </span>
                                   )}
+                                  {h}
                                 </div>
                               );
                             })}
@@ -1701,8 +1701,8 @@ ${comparison.sort((a,b)=>a.name.localeCompare(b.name)).map(p => {
                         <th style={{ ...ROW_LABEL, borderTop:'none', background:'#1a1a1a' }}></th>
                         {filteredByMarket.map(c => (
                           <th key={c.id} style={{ ...COL_HEAD, borderTop:'none' }}>
-                            <div>{c.name}</div>
                             <MarketBadge country={c.country || 'US'} />
+                            <div style={{ marginTop:'4px' }}>{c.name}</div>
                           </th>
                         ))}
                       </tr>
